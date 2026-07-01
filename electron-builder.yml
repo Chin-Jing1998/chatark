@@ -1,0 +1,51 @@
+appId: com.chatark.app
+productName: ChatArk
+copyright: ChatArk
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+
+# 无原生模块，asar 直接打包即可
+asar: true
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+  icon: build/icon.icns
+  # 个人分发：未签名时收件人需右键打开；如有证书可在此配置 identity 与 notarize
+
+win:
+  icon: build/icon.ico
+  # exe/安装名走顶层 productName（ChatArk）；win10 与 win11 二进制兼容，x64 版通用两者
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+    - target: portable
+      arch:
+        - x64
+        - arm64
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  shortcutName: ChatArk
+  # 产物文件名用 ASCII，规避浏览器下载/命令行中文乱码
+  artifactName: ChatArk-Setup-${version}-${arch}.${ext}
+
+portable:
+  artifactName: ChatArk-Portable-${version}-${arch}.${ext}

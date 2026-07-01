@@ -1,0 +1,216 @@
+@import 'tailwindcss';
+/* 激活 Radix 浮层早已写好的 animate-in/fade-in/zoom-in/slide-in 工具类（Tailwind v4 版 tailwindcss-animate） */
+@import 'tw-animate-css';
+
+/* 类驱动暗色（Tailwind v4） */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * 设计令牌 —— Obsidian 风浅灰白 + 品牌紫。
+ * 关键分工：
+ *  - --accent 保持“中性悬停灰”（shadcn 组件语义：菜单/命令项 hover/selected 背景）。
+ *  - --brand 才是品牌紫（交互链接、活动态、主操作），单独暴露为 bg-brand/text-brand。
+ *  两者若混用，会导致每个 ghost 按钮悬停都变紫。
+ */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 19%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 19%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 19%;
+  --primary: 0 0% 20%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 95%;
+  --secondary-foreground: 0 0% 20%;
+  --muted: 0 0% 95.5%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 0 0% 92%;
+  --accent-foreground: 0 0% 18%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 89%;
+  --input: 0 0% 89%;
+  --ring: 254 82% 60%;
+  --radius: 0.5rem;
+
+  /* Obsidian 特有表面 */
+  --sidebar: 0 0% 96.9%;
+  --sidebar-foreground: 0 0% 28%;
+  --rail: 0 0% 93.7%;
+  /* 品牌紫（interactive-accent）；L=60% 使白底文本达 WCAG AA 4.5:1 */
+  --brand: 254 82% 60%;
+  --brand-foreground: 0 0% 100%;
+  /* 对话 iframe 元素底色（消除对话正文透明时露灰）；预设会覆盖 */
+  --conv-bg: #f4f5f7;
+  /* 七彩流光四色（预设会覆盖） */
+  --flow-1: #7c6ff2;
+  --flow-2: #2563eb;
+  --flow-3: #06b6d4;
+  --flow-4: #ec4899;
+}
+
+.dark {
+  --background: 0 0% 12.5%;
+  --foreground: 0 0% 85%;
+  --card: 0 0% 14.5%;
+  --card-foreground: 0 0% 85%;
+  --popover: 0 0% 15%;
+  --popover-foreground: 0 0% 88%;
+  --primary: 0 0% 90%;
+  --primary-foreground: 0 0% 12%;
+  --secondary: 0 0% 20%;
+  --secondary-foreground: 0 0% 90%;
+  --muted: 0 0% 18%;
+  --muted-foreground: 0 0% 58%;
+  --accent: 0 0% 22%;
+  --accent-foreground: 0 0% 90%;
+  --destructive: 0 63% 50%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 22%;
+  --input: 0 0% 24%;
+  --ring: 254 84% 74%;
+
+  --sidebar: 0 0% 9.5%;
+  --sidebar-foreground: 0 0% 72%;
+  --rail: 0 0% 7.5%;
+  --brand: 254 84% 74%;
+  --brand-foreground: 0 0% 10%;
+  --conv-bg: #0d1117;
+}
+
+/* 把令牌暴露为 Tailwind 颜色/圆角工具（bg-background / text-muted-foreground / bg-sidebar / text-brand …） */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-rail: hsl(var(--rail));
+  --color-brand: hsl(var(--brand));
+  --color-brand-foreground: hsl(var(--brand-foreground));
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  /* Apple 风缓动（ease-glass 工具类） */
+  --ease-glass: cubic-bezier(0.32, 0.72, 0, 1);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
+    'Segoe UI', Roboto, sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* macOS 原生 vibrancy：外壳背景透明，桌面磨砂透过；玻璃质感由各面板半透明 + backdrop-blur 叠加 */
+  html.is-mac body {
+    background-color: transparent;
+  }
+  /* Obsidian 风细滚动条：默认隐形，悬停容器时才显影 */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.28);
+    border-radius: 8px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.45);
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/* Radix ScrollArea 内层内容包裹默认 display:table，会收缩到内容宽（含 truncate 的 nowrap 文本 min-content），
+   撑破视口 100% 宽 → 其下 w-full 列表项随之变宽、truncate 省略号失效（标签/收藏/搜索面板标题被硬切）。
+   改为 block → 盒宽恒等于视口 100%，令列表项 min-w-0 + truncate 正常以 … 截断。
+   须 !important 压过 Radix 写在元素上的内联 display:table。
+   本应用全部 ScrollArea 均为纵向列表、无一需要横向滚动，故全局生效是安全且期望的。 */
+[data-radix-scroll-area-viewport] > div {
+  display: block !important;
+}
+
+/* 标签条：隐藏横向滚动条（在 ~38px 高的标签栏内 12px 滚动条过高） */
+.no-hscroll {
+  scrollbar-width: none;
+}
+.no-hscroll::-webkit-scrollbar {
+  height: 0;
+  width: 0;
+}
+
+/* 极淡·缓慢七彩流光：外壳氛围层，置于面板之下透过磨砂隐约流动，不覆盖正文可读区 */
+.flowlight {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.08;
+  background:
+    radial-gradient(40vmax 40vmax at 18% 22%, var(--flow-1), transparent 60%),
+    radial-gradient(36vmax 36vmax at 82% 18%, var(--flow-2), transparent 60%),
+    radial-gradient(42vmax 42vmax at 78% 82%, var(--flow-3), transparent 62%),
+    radial-gradient(34vmax 34vmax at 22% 84%, var(--flow-4), transparent 60%);
+  filter: blur(36px) saturate(150%);
+  animation: flow-drift 42s ease-in-out infinite alternate;
+}
+.dark .flowlight {
+  opacity: 0.12;
+}
+@keyframes flow-drift {
+  0% {
+    transform: translate3d(-3%, -2%, 0) rotate(0deg) scale(1.08);
+  }
+  50% {
+    transform: translate3d(3%, 2%, 0) rotate(6deg) scale(1.14);
+  }
+  100% {
+    transform: translate3d(-2%, 3%, 0) rotate(-5deg) scale(1.1);
+  }
+}
+
+/* 尊重系统“减弱动效”偏好：关闭旋转/过渡等非必要动画 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
