@@ -208,9 +208,11 @@ export async function renderFileResponse(absPath: string): Promise<Response> {
   if (ext === '.md' || ext === '.markdown') {
     return htmlResponse(shell(`<article class="md">${md.render(raw)}</article>`))
   }
-  // 已知代码类或通用文本 → 高亮/转义为 <pre>
+  // 已知代码类或通用文本 → 高亮；其余 → 纯转义。
+  // 注意不放行无扩展名（ext === ''）：那类文件多为 .ssh/id_rsa、.npmrc 一类凭据，
+  // 且 isPreviewable 已在 handler 层将其挡下，此处与之保持一致，不留意图错位的裂缝。
   const inner =
-    ext in EXT_LANG || TEXT_EXT.has(ext) || ext === ''
+    ext in EXT_LANG || TEXT_EXT.has(ext)
       ? `<pre class="hljs code"><code>${highlightCode(raw, ext)}</code></pre>`
       : `<pre class="hljs code"><code>${escapeHtml(raw)}</code></pre>`
   return htmlResponse(shell(inner))

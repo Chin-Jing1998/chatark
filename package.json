@@ -27,6 +27,9 @@
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.2.0"
   },
+  "overrides": {
+    "linkify-it": "^5.0.2"
+  },
   "devDependencies": {
     "@radix-ui/react-context-menu": "^2.2.6",
     "@radix-ui/react-dialog": "^1.1.6",
@@ -43,14 +46,14 @@
     "@tailwindcss/vite": "^4.0.6",
     "@tanstack/react-virtual": "^3.11.2",
     "@types/markdown-it": "^14.1.2",
-    "@types/node": "^22.10.0",
+    "@types/node": "^24.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.4",
-    "electron": "^33.2.1",
+    "electron": "^43.2.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "lucide-react": "^0.469.0",

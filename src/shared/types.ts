@@ -165,6 +165,13 @@ export interface ScanResult {
   tookMs: number
 }
 
+/** 路径迁移结果 */
+export interface MigrationOutcome {
+  movedFiles: number
+  /** 未能移入回收站、仍留在旧库根下的顶层条目名（正常情况下为空） */
+  sourceKept: string[]
+}
+
 /** 路径迁移进度 */
 export interface MigrationProgress {
   phase: 'plan' | 'copying' | 'verifying' | 'switching' | 'done' | 'error'

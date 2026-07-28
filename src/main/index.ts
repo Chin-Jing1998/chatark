@@ -7,6 +7,7 @@ import { handleConvo } from './protocol/handler'
 import { restartLibraryWatch, closeLibraryWatch } from './watch-manager'
 import { parseHeadlessArgs, runHeadlessExport } from './export-headless'
 import { installAppMenu } from './app-menu'
+import { pruneStaleTmp } from './services/hook/install'
 
 const headless = parseHeadlessArgs(process.argv)
 
@@ -17,6 +18,16 @@ if (!headless) registerConvoScheme()
 const WINDOW_DEFAULT = { width: 1320, height: 860, minWidth: 960, minHeight: 620 }
 
 const isMac = process.platform === 'darwin'
+
+/** 是否为可交给系统浏览器打开的安全外链（仅 http/https/mailto）。 */
+function isExternallyOpenable(url: string): boolean {
+  try {
+    const scheme = new URL(url).protocol
+    return scheme === 'http:' || scheme === 'https:' || scheme === 'mailto:'
+  } catch {
+    return false // 非法 URL：不外开
+  }
+}
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -43,16 +54,20 @@ function createWindow(): BrowserWindow {
 
   // 外链交系统浏览器，渲染进程绝不被导航离开；仅放行安全协议，拦截 file:/javascript: 等
   win.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const scheme = new URL(url).protocol
-      if (scheme === 'http:' || scheme === 'https:' || scheme === 'mailto:') {
-        void shell.openExternal(url)
-      }
-    } catch {
-      /* 非法 URL：忽略，不外开 */
-    }
+    if (isExternallyOpenable(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
+
+  // 顶层导航一律拦截：渲染层只应加载本地打包页面，任何离开都视为异常（拖入链接、脚本改 location）。
+  // http(s) 交系统浏览器，其余（file:/javascript:/data: 等）直接丢弃。
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url === win.webContents.getURL()) return // 同页刷新
+    event.preventDefault()
+    if (isExternallyOpenable(url)) void shell.openExternal(url)
+  })
+
+  // webviewTag 已关闭，此处再兜一层：即便未来误开也不允许附加 webview
+  win.webContents.on('will-attach-webview', (event) => event.preventDefault())
 
   const devUrl = process.env['ELECTRON_RENDERER_URL']
   if (devUrl) {
@@ -84,6 +99,9 @@ app.whenReady().then(() => {
 
   // 监听库根的外部变更：去抖后重扫并通知渲染层（自操作回声已被抑制）
   restartLibraryWatch()
+
+  // 清理历次崩溃在 ~/.claude 留下的原子写残骸（不阻塞启动）
+  void pruneStaleTmp()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

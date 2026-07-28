@@ -1,4 +1,4 @@
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { promises as fs } from 'node:fs'
 import { createHash } from 'node:crypto'
 import type { ConversationRecord, ScanResult } from '@shared/types'
@@ -57,7 +57,9 @@ export async function scan(root: string): Promise<ScanResult> {
   }
 
   const isConv = await mapLimit(candidates, SCAN_CONCURRENCY, async (d) => {
-    const ok = parseDirName(d.split('/').pop() ?? '') !== null || (await hasMeta(d))
+    // 必须用 basename：Windows 的分隔符是 `\`，split('/') 会把整条路径原样返回，
+    // 导致 parseDirName 恒为 null —— 缺 meta.json 但目录名规范的对话会被整个跳过。
+    const ok = parseDirName(basename(d)) !== null || (await hasMeta(d))
     if (!ok) skipped.push({ path: d, reason: '非对话目录（无 meta.json 且目录名不符）' })
     return ok
   })

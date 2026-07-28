@@ -2,6 +2,11 @@
 <html lang="zh-CN" data-theme="auto">
 <head>
 <meta charset="utf-8">
+<!-- 自包含快照：数据与脚本全内联，不加载任何外部资源。
+     在 ChatArk 内查看时由 convo:// 协议下发同等策略；此 meta 保证脱离应用、
+     直接用浏览器打开这份文件时同样没有外发通道（对话内容含大量敏感信息）。
+     connect-src 'self' 供模板的"实时模式"回读同目录 data.js。 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; media-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__</title>
 <style>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { transformConversationHtml } from './transform'
 import { DEFAULT_LIBRARY_REL } from '@shared/constants'
 import { THEME_MESSAGE, OPEN_FILE_MESSAGE } from '@shared/viewer'
@@ -75,18 +75,37 @@ describe('transformConversationHtml（合成输入，确定性）', () => {
   })
 })
 
-// 真实对话 HTML：file:// 多为运行时动态生成，故仅校验主题/embed/脚本注入（静态可见部分）
-const htmlPath = join(
-  homedir(),
-  ...DEFAULT_LIBRARY_REL,
-  '文档处理',
-  '20260628_160948_对话数据导出设置_73b0f3b8',
-  '对话.html'
-)
-const maybe = existsSync(htmlPath) ? describe : describe.skip
+// 真实对话 HTML：file:// 多为运行时动态生成，故仅校验主题/embed/脚本注入（静态可见部分）。
+// 从库里现取一份，而非写死某个对话目录名——那份一旦被改名/删除，本组会静默跳过、失去保护。
+const libraryRoot = process.env.CHATARK_TEST_LIBRARY || join(homedir(), ...DEFAULT_LIBRARY_REL)
+
+function findAnyConversationHtml(root: string): string | null {
+  let categories: string[]
+  try {
+    categories = readdirSync(root)
+  } catch {
+    return null
+  }
+  for (const cat of categories) {
+    let convs: string[]
+    try {
+      convs = readdirSync(join(root, cat))
+    } catch {
+      continue
+    }
+    for (const c of convs) {
+      const p = join(root, cat, c, '对话.html')
+      if (existsSync(p)) return p
+    }
+  }
+  return null
+}
+
+const htmlPath = findAnyConversationHtml(libraryRoot)
+const maybe = htmlPath ? describe : describe.skip
 
 maybe('transformConversationHtml（真实对话 HTML）', () => {
-  const raw = readFileSync(htmlPath, 'utf8')
+  const raw = readFileSync(htmlPath as string, 'utf8')
   it('原 HTML 含 data-theme="auto" 与 embed 支持', () => {
     expect(raw).toMatch(/<html\b[^>]*data-theme="auto"/i)
   })

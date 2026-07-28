@@ -4,7 +4,13 @@ import { FILE_NAMES } from '@shared/constants'
 import type { ConversationRecord, SearchHit } from '@shared/types'
 import { mapLimit } from '../fs/paths'
 
-const MAX_INDEX_CHARS = 500_000 // 单文档纳入索引的正文上限（md 实测最大约 278KB）
+/** 单文档纳入索引的正文上限（md 实测最大约 278KB）。 */
+const MAX_INDEX_CHARS = 500_000
+/**
+ * 全库正文常驻上限。超出后新文档只索引标题，避免超大库把主进程内存吃光。
+ * 200M 字符 ≈ 400MB（UTF-16）；实测 274 篇对话约用 39M 字符，余量约 7 倍。
+ */
+const MAX_TOTAL_INDEX_CHARS = 200_000_000
 const SNIPPET_RADIUS = 36
 const READ_CONCURRENCY = 8
 
@@ -13,34 +19,34 @@ interface DocSource {
   title: string
   category: string
   mdPath: string | null
+  /** 关键文件 size:mtime 指纹；不变则正文无需重读（增量索引的判据） */
+  fingerprint: string
 }
 
-interface Doc {
-  id: string
-  title: string
-  category: string
-  text: string // 规范化（小写、压空白）后的正文，用于精确子串校验与片段
+interface Doc extends DocSource {
+  /** 规范化（小写、压空白）后的正文，用于子串匹配与片段提取 */
+  text: string
 }
 
 function normalize(s: string): string {
   return s.toLowerCase().replace(/\s+/g, ' ')
 }
 
-function trigrams(s: string): string[] {
-  const out: string[] = []
-  for (let i = 0; i + 3 <= s.length; i++) out.push(s.slice(i, i + 3))
-  return out
-}
-
 /**
- * 纯 TS trigram 倒排全文索引（无原生依赖）。
- * 懒构建：首次查询时读取各对话 md 建索引；rescan 后置脏、下次查询重建。
+ * 纯 TS 全文搜索（无原生依赖、无落盘，索引常驻主进程内存）。
+ *
+ * 实现取舍：**不建 trigram 倒排，直接对常驻正文做子串扫描**。
+ * 实测 274 篇对话（39M 字符）全表扫描耗时 1–7ms，而同样数据的 trigram 倒排要占约 1.2GB
+ * 内存（正文本身仅 78MB）——倒排在此规模下是净负债：拿 16 倍内存换用户感知不到的几毫秒。
+ *
+ * 索引为增量构建：rescan 后按 fingerprint 只重读内容真正变化的对话，
+ * 未变的复用已有正文，避免每次外部文件改动都全库重读 md。
  */
 class SearchService {
   private sources: DocSource[] = []
   private docs = new Map<string, Doc>()
-  private postings = new Map<string, Set<string>>()
   private dirty = true
+  private built = false
   private building: Promise<void> | null = null
 
   /** 由 library 在每次扫描后注入数据源。 */
@@ -49,7 +55,8 @@ class SearchService {
       id: r.id,
       title: r.title,
       category: r.category,
-      mdPath: r.files.md.exists ? join(r.absPath, FILE_NAMES.md) : null
+      mdPath: r.files.md.exists ? join(r.absPath, FILE_NAMES.md) : null,
+      fingerprint: r.fingerprint
     }))
     this.dirty = true
   }
@@ -59,10 +66,25 @@ class SearchService {
     // 否则 mapLimit 的 I/O 期间到来的 setSource() 置 dirty=true 会被末尾覆盖，导致索引长期陈旧。
     this.dirty = false
     const sources = this.sources
-    const docs = new Map<string, Doc>()
-    const postings = new Map<string, Set<string>>()
+    const prev = this.docs
 
-    await mapLimit(sources, READ_CONCURRENCY, async (src) => {
+    // 增量：指纹未变且已索引过的文档直接复用正文，只重读真正变化的
+    const reused = new Map<string, Doc>()
+    const stale: DocSource[] = []
+    for (const src of sources) {
+      const old = prev.get(src.id)
+      if (old && old.fingerprint === src.fingerprint && old.mdPath === src.mdPath) {
+        // 标题/分类可能在正文未变的情况下改动（重命名、改分类），一并刷新
+        reused.set(src.id, { ...old, title: src.title, category: src.category })
+      } else {
+        stale.push(src)
+      }
+    }
+
+    let budget = MAX_TOTAL_INDEX_CHARS
+    for (const d of reused.values()) budget -= d.text.length
+
+    const fresh = await mapLimit(stale, READ_CONCURRENCY, async (src) => {
       let body = ''
       if (src.mdPath) {
         try {
@@ -71,44 +93,26 @@ class SearchService {
           body = ''
         }
       }
-      const text = normalize(`${src.title}\n${body}`).slice(0, MAX_INDEX_CHARS)
-      docs.set(src.id, { id: src.id, title: src.title, category: src.category, text })
-
-      const seen = new Set<string>()
-      for (const g of trigrams(text)) {
-        if (seen.has(g)) continue
-        seen.add(g)
-        let set = postings.get(g)
-        if (!set) {
-          set = new Set<string>()
-          postings.set(g, set)
-        }
-        set.add(src.id)
-      }
+      return { src, body }
     })
 
+    const docs = new Map<string, Doc>(reused)
+    for (const { src, body } of fresh) {
+      // 预算耗尽时退化为只索引标题（仍可按标题搜到），不让内存无上限增长
+      const room = Math.max(src.title.length, Math.min(MAX_INDEX_CHARS, budget))
+      const text = normalize(`${src.title}\n${body}`).slice(0, room)
+      budget -= text.length
+      docs.set(src.id, { ...src, text })
+    }
+
     this.docs = docs
-    this.postings = postings
+    this.built = true
   }
 
   private async ensureBuilt(): Promise<void> {
-    if (!this.dirty && this.docs.size > 0) return
+    if (!this.dirty && this.built) return
     if (!this.building) this.building = this.build().finally(() => (this.building = null))
     await this.building
-  }
-
-  private candidateIds(nq: string): string[] {
-    if (nq.length < 3) return [...this.docs.keys()]
-    const grams = [...new Set(trigrams(nq))]
-    const sets = grams.map((g) => this.postings.get(g)).filter((s): s is Set<string> => Boolean(s))
-    if (sets.length < grams.length) return [] // 任一 trigram 无倒排 → 不可能命中
-    sets.sort((a, b) => a.size - b.size)
-    let acc = [...sets[0]]
-    for (let i = 1; i < sets.length && acc.length; i++) {
-      const s = sets[i]
-      acc = acc.filter((id) => s.has(id))
-    }
-    return acc
   }
 
   async query(q: string, limit = 50): Promise<SearchHit[]> {
@@ -117,16 +121,14 @@ class SearchService {
     await this.ensureBuilt()
 
     const hits: SearchHit[] = []
-    for (const id of this.candidateIds(nq)) {
-      const doc = this.docs.get(id)
-      if (!doc) continue
+    for (const doc of this.docs.values()) {
       const idx = doc.text.indexOf(nq)
-      if (idx < 0) continue // trigram 仅必要条件，需精确子串校验
+      if (idx < 0) continue
       const titleHit = normalize(doc.title).includes(nq)
       const occurrences = countOccurrences(doc.text, nq)
       const score = occurrences + (titleHit ? 50 : 0)
       hits.push({
-        id,
+        id: doc.id,
         title: doc.title,
         category: doc.category,
         score,

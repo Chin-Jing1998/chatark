@@ -1,10 +1,11 @@
 import { shell } from 'electron'
-import { join } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import type {
   ConversationRecord,
   ConversationSummary,
   ListQuery,
   ListResult,
+  MigrationOutcome,
   OpResult,
   OrgMeta,
   ScanResult
@@ -18,9 +19,11 @@ import { moveToCategory } from './fs/move'
 import { trashConversationDir } from './fs/trash'
 import { renameConversation } from './fs/rename'
 import { updateOrg } from './org/sidecar'
+import { isDangerousRoot } from './fs/sensitive-roots'
 import { getLibraryRoot, setLibraryRoot } from './settings/store'
 import { searchService } from './search/search'
 import { runMigration, type MigrationProgress } from './migration/migrate'
+import { acquireMigrationLock, releaseMigrationLock } from './migration/lock'
 
 /** 主进程内的对话库内存态（M5 会叠加 SQLite 索引，但磁盘始终为真相）。 */
 class Library {
@@ -28,6 +31,7 @@ class Library {
   private hostIndex = new Map<string, string>() // viewerHost -> 对话目录绝对路径
   private lastScan: ScanResult | null = null
   private suppressUntil = 0
+  private scanning: Promise<ScanResult> | null = null
 
   getRoot(): string {
     return getLibraryRoot()
@@ -46,8 +50,37 @@ class Library {
     return this.hostIndex.get(host)
   }
 
-  /** 全量重扫并重建内存态。 */
-  async rescan(): Promise<ScanResult> {
+  /**
+   * 「应用内打开任意文件」（convo://open-file）允许的根目录集合：库根 + 各对话的 cwd。
+   *
+   * 必须过滤过宽根：若用户曾在 ~ 或 ~/Documents 下跑过 Claude Code，其 meta.cwd 就是该目录，
+   * 不过滤则整个 home 被放行、白名单形同虚设。代价是此类对话的文件预览失效——这是正确的取舍。
+   */
+  allowedFileRoots(): string[] {
+    const roots = new Set<string>()
+    const libRoot = this.getRoot()
+    if (libRoot && !isDangerousRoot(libRoot)) roots.add(resolve(libRoot))
+    for (const r of this.records.values()) {
+      const cwd = r.meta.cwd?.trim()
+      if (!cwd || !isAbsolute(cwd) || isDangerousRoot(cwd)) continue
+      roots.add(resolve(cwd))
+    }
+    return [...roots]
+  }
+
+  /**
+   * 全量重扫并重建内存态。
+   *
+   * 加互斥：文件监听回调、convRescan IPC、导入/补导出后的重扫都可能并发，
+   * 大库单次重扫耗时可观，重叠时后完成者会覆盖先完成者的结果。进行中则复用同一次扫描。
+   */
+  rescan(): Promise<ScanResult> {
+    if (this.scanning) return this.scanning
+    this.scanning = this.doRescan().finally(() => (this.scanning = null))
+    return this.scanning
+  }
+
+  private async doRescan(): Promise<ScanResult> {
     const result = await scan(this.getRoot())
     this.records = new Map(result.records.map((r) => [r.id, r]))
     this.hostIndex = new Map(result.records.map((r) => [viewerHost(r.id), r.absPath]))
@@ -157,22 +190,30 @@ class Library {
   async setRoot(
     newRoot: string,
     onProgress: (p: MigrationProgress) => void
-  ): Promise<OpResult<{ movedFiles: number }>> {
+  ): Promise<OpResult<MigrationOutcome>> {
     const oldRoot = this.getRoot()
-    if (oldRoot === newRoot) {
+    // 规范化后比较：尾部分隔符、`.`/`..` 不应被当成"换了个路径"而触发一次完整迁移+删源
+    if (resolve(oldRoot) === resolve(newRoot)) {
       setLibraryRoot(newRoot)
       await this.rescan()
-      return ok({ movedFiles: 0 })
+      return ok({ movedFiles: 0, sourceKept: [] })
+    }
+
+    // 跨进程锁：迁移期间让 SessionEnd 钩子的独立导出进程让路，
+    // 否则新写入旧根的会话不在 walk 快照内、会被删源一并清掉
+    if (!acquireMigrationLock()) {
+      return fail('CONFLICT', '已有迁移正在进行，请等待其完成后再试')
     }
     this.suppressWatch(10 * 60 * 1000) // 迁移期间长抑制
-    const r = await runMigration(oldRoot, newRoot, onProgress, () => setLibraryRoot(newRoot))
-    if (!r.ok) {
-      this.suppressWatch(0)
+    try {
+      const r = await runMigration(oldRoot, newRoot, onProgress, () => setLibraryRoot(newRoot))
+      if (!r.ok) return r
+      await this.rescan() // 新根重建内存态 + 搜索源
       return r
+    } finally {
+      this.suppressWatch(0)
+      releaseMigrationLock()
     }
-    await this.rescan() // 新根重建内存态 + 搜索源
-    this.suppressWatch(0)
-    return r
   }
 
   /** 操作后用新路径重解析并替换内存记录与索引。 */

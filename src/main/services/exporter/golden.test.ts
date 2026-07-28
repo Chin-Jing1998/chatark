@@ -6,8 +6,7 @@
  * 重建 messageCount 与 golden 一致（源未漂移）者，使后续断言全部真实生效。
  * 绝不写入真实历史库；exportSession 落盘到 scratchpad 临时目录后清理。
  */
-import { execSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -27,8 +26,14 @@ import {
   type Conversation
 } from './index'
 import type { MetaJson } from '@shared/types'
+import { DEFAULT_LIBRARY_REL } from '@shared/constants'
 
-const HISTORY_ROOT = path.join(os.homedir(), 'claude code 编程项目研究', 'claude code历史对话记录')
+/**
+ * 黄金样本取自使用者本机的真实历史库，故路径不写死在仓库里：
+ * 优先取环境变量 CHATARK_TEST_LIBRARY，否则回退到默认库根；两者都不存在时整组跳过。
+ */
+const HISTORY_ROOT =
+  process.env.CHATARK_TEST_LIBRARY || path.join(os.homedir(), ...DEFAULT_LIBRARY_REL)
 
 interface Candidate {
   dir: string
@@ -127,15 +132,10 @@ function firstDiff(a: string, b: string): { index: number; mine: string; golden:
   return { index: i, mine: a.slice(Math.max(0, i - 20), i + 60), golden: b.slice(Math.max(0, i - 20), i + 60) }
 }
 
-function scratchpadOrTmp(): string {
-  const sp =
-    '/private/tmp/claude-501/-Users-chin-jing1998-claude-code--------claude-code------/bd7e6452-1fad-456e-900f-e68ccc1d67b7/scratchpad'
-  return existsSync(sp) ? sp : os.tmpdir()
-}
-
 function cleanup(dir: string): void {
   try {
-    execSync(`rm -rf ${JSON.stringify(dir)}`)
+    // 用 fs.rmSync 而非 execSync('rm -rf')：后者在 Windows 上不存在，会让本用例恒失败
+    rmSync(dir, { recursive: true, force: true })
   } catch {
     // 忽略清理失败
   }
@@ -219,7 +219,7 @@ describe('TS 导出器黄金样本回归', () => {
 
   it('exportSession 落盘 5 件套到临时目录（不污染真实库）且幂等', async () => {
     const s = samples[0]
-    const tmpRoot = mkdtempSync(path.join(scratchpadOrTmp(), 'chatark-export-'))
+    const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'chatark-export-'))
     const outcome = await exportSession({ sourceJsonl: s.source, historyRoot: tmpRoot })
     if (!outcome.ok) console.warn(`[export-fail] ${s.source} reason=${outcome.reason}`)
     expect(outcome.ok).toBe(true)

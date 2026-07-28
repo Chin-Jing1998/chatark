@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs'
 import { join, relative, isAbsolute, extname } from 'node:path'
 import { FILE_VIEW_HOST } from '@shared/viewer'
 import { library } from '../services/library'
+import { isWithin } from '../services/fs/sensitive-roots'
 import { injectTheme, buildInjectedCss } from '../services/theme'
 import { transformConversationHtml, CONVO_CSP } from './transform'
 import { renderFileResponse, isPreviewable } from './file-view'
@@ -30,6 +31,10 @@ export async function handleConvo(request: Request): Promise<Response> {
   }
 
   // 任意文件视图：convo://open-file/<encodeURIComponent(绝对路径)> → file-view 渲染
+  //
+  // 此入口可被对话 HTML 内联脚本经 postMessage 主动触发（导入的第三方对话包属不可信内容），
+  // 故三重校验全部落在主进程，不依赖渲染层的任何判断：
+  //   1) 绝对路径；2) 可预览类型白名单；3) realpath 后必须落在库根或某个对话 cwd 之内。
   if (url.hostname === FILE_VIEW_HOST) {
     let p: string
     try {
@@ -38,9 +43,21 @@ export async function handleConvo(request: Request): Promise<Response> {
       return new Response('bad path', { status: 400 })
     }
     if (!p || !isAbsolute(p)) return new Response('bad path', { status: 400 })
-    // 纵深防御：仅放行可预览类型（代码/文本/Markdown/图片/HTML），挡住无扩展名的密钥/凭证类文件
     if (!isPreviewable(p)) return new Response('文件类型不支持预览', { status: 403 })
-    return renderFileResponse(p)
+
+    await library.ensureLoaded()
+    // 先解析真实路径再判定范围，防止软链指向白名单外（realpath 失败即视为不存在）
+    let realFile: string
+    try {
+      realFile = await fs.realpath(p)
+    } catch {
+      return new Response('文件不存在', { status: 404 })
+    }
+    const roots = library.allowedFileRoots()
+    if (!roots.some((root) => isWithin(root, realFile))) {
+      return new Response('该文件不在历史库或对话项目目录内，已拒绝预览', { status: 403 })
+    }
+    return renderFileResponse(realFile)
   }
 
   await library.ensureLoaded()

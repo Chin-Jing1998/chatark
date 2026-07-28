@@ -27,11 +27,20 @@ function safeForStyleTag(s: string): string {
   return s.replace(/<\/style>/gi, '<\\/style>')
 }
 
+/**
+ * 令牌名白名单：只接受 CSS 自定义属性形态（--foo-bar）。
+ * 键此前未做任何处理，一个形如 `}html{...` 的键即可闭合选择器、注入任意规则；
+ * 值再怎么转义也拦不住。当前键均来自内置预设，此为防止后续开放自定义主题时留下缺口。
+ */
+const TOKEN_KEY_RE = /^--[A-Za-z0-9-]+$/
+
 export function currentThemeTokensCss(): string {
   if (!currentTokens) return ''
   const decls = Object.entries(currentTokens)
+    .filter(([k, v]) => TOKEN_KEY_RE.test(k) && typeof v === 'string')
     .map(([k, v]) => `${k}:${safeForStyleTag(v)}`)
     .join(';')
+  if (!decls) return ''
   return `html[data-theme]{${decls}}`
 }
 

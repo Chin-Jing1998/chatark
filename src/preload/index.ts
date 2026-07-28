@@ -9,6 +9,7 @@ import type {
   ImportResult,
   ListQuery,
   ListResult,
+  MigrationOutcome,
   MigrationProgress,
   OpResult,
   OrgMeta,
@@ -60,7 +61,7 @@ const api: ChatArkApi = {
   library: {
     getRoot: (): Promise<string> => ipcRenderer.invoke(IPC.libraryGetRoot),
     pickRoot: (): Promise<string | null> => ipcRenderer.invoke(IPC.libraryPickRoot),
-    setRoot: (newRoot: string): Promise<OpResult<{ movedFiles: number }>> =>
+    setRoot: (newRoot: string): Promise<OpResult<MigrationOutcome>> =>
       ipcRenderer.invoke(IPC.librarySetRoot, newRoot)
   },
 

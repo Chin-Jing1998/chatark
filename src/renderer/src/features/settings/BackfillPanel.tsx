@@ -58,6 +58,13 @@ export default function BackfillPanel(): JSX.Element {
       <p className="text-xs text-muted-foreground">
         补录只在本机有意义：依赖你 ~/.claude 下的原始会话。分发给他人后，对方在自己机器上补录自己的会话。
       </p>
+      <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">分享对话包前请自行核查。</span>
+        每个对话目录含 <code className="font-mono">transcript.jsonl</code>
+        （原始全量转录，未截断也未脱敏，包含所有工具调用的完整入参与返回——读过的文件内容、执行过的命令输出，
+        其中可能含密钥或私密信息）；<code className="font-mono">meta.json</code> 与{' '}
+        <code className="font-mono">data.js</code> 另含项目绝对路径（含你的用户名）与 Git 分支名。
+      </div>
       <div className="flex gap-2">
         <Button variant="secondary" disabled={busy} onClick={() => void doImport()}>
           导入对话文件夹

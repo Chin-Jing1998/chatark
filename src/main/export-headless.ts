@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import { exportSession, listSessions } from './services/exporter'
+import { isMigrationLocked } from './services/migration/lock'
 import { getLibraryRoot } from './services/settings/store'
 
 interface HeadlessArgs {
@@ -50,6 +51,14 @@ async function resolveJsonl(args: HeadlessArgs): Promise<string | null> {
  * 运行后直接退出，不创建窗口。
  */
 export async function runHeadlessExport(args: HeadlessArgs): Promise<void> {
+  // 迁移进行中：让路。此时写入旧库根的会话不在迁移的文件快照内，会被删源一并清掉。
+  // 退出码取 0——自动导出钩子失败会打断用户的 Claude Code 会话，而"这次没导出"并非错误。
+  if (isMigrationLocked()) {
+    process.stderr.write('历史库正在迁移，本次跳过自动导出（迁移完成后可在补录面板补导出）\n')
+    app.exit(0)
+    return
+  }
+
   let code = 1
   try {
     const jsonl = await resolveJsonl(args)
