@@ -9,7 +9,22 @@ Claude Code 历史对话管理平台（Electron 桌面应用）。直观浏览�
 - **补录三入口**：自动扫描登记现有库、拖拽/选择导入对话包、扫描原始会话补导出。
 - **内置导出器**：从 Python `chat_export` 忠实移植为 TypeScript，随包自带、装了即用、无需 Python；对历史库做过逐字节黄金样本回归。
 - **一键自动导出**：可在 Claude Code 的 `~/.claude/settings.json` 安装 SessionEnd 钩子，新会话结束自动入库。
-- **保存路径可迁移**：更换库根时复制-校验-切换-删源安全迁移全部内容，校验通过前绝不删旧数据。
+- **保存路径可迁移**：更换库根时复制-校验-切换-旧路径移入回收站，校验通过前绝不动旧数据；不接受主目录、桌面、文稿等个人数据总入口作为库根。
+
+## 下载
+
+预构建包见 [Releases](https://github.com/Chin-Jing1998/chatark/releases/latest)。目前仅提供 Windows 版；macOS 与 Linux 请按下方「构建与分发」自行打包。
+
+| 文件 | 适用 |
+|---|---|
+| `ChatArk-Setup-<版本>-x64.exe` | Intel / AMD 处理器，安装版（多数人选这个） |
+| `ChatArk-Setup-<版本>-arm64.exe` | ARM 处理器（如骁龙 X 系列），安装版 |
+| `ChatArk-Setup-<版本>.exe` | 通用版，同时含两种架构，体积约为单架构两倍 |
+| `ChatArk-Portable-<版本>-*.exe` | 免安装便携版，双击即用，不写注册表 |
+
+安装包未做代码签名，Windows SmartScreen 可能提示「未知发布者」，如需继续点击「更多信息 → 仍要运行」。
+
+应用完全离线：不联网、不上传任何数据、无遥测与自动更新。
 
 ## 开发
 
