@@ -47,6 +47,9 @@ linux:
   # 注意 desktopName 属于 package.json 顶层字段，linux 段这里只放开关
   syncDesktopName: true
   synopsis: Claude Code 历史对话管理平台
+  # deb 包必须有 maintainer（默认取 package.json 的 author，但那里只有名字没有邮箱）。
+  # 用 GitHub 的 noreply 地址而非真实邮箱：deb 包会公开分发，元数据里的地址会被抓取
+  maintainer: Chin-Jing1998 <Chin-Jing1998@users.noreply.github.com>
 
 nsis:
   oneClick: false
