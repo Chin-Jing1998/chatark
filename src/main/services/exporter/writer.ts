@@ -5,10 +5,12 @@
  * 落盘 .tmp + rename 原子；按 sessionId 幂等复用旧目录。
  */
 import fs from 'node:fs'
+import { promises as fsp } from 'node:fs'
 import path from 'node:path'
 
 import type { MetaJson } from '@shared/types'
 
+import { mapLimit } from '../fs/paths'
 import * as engine from './engine'
 import * as textutil from './textutil'
 import * as timeutil from './timeutil'
@@ -41,48 +43,68 @@ export function folderName(conv: Conversation): string {
   return `${ts}_${title}${suffix}`
 }
 
-/** 递归列出目录下所有 meta.json 路径。 */
-function* walkMeta(root: string): Generator<string> {
-  let entries: fs.Dirent[]
-  try {
-    entries = fs.readdirSync(root, { withFileTypes: true })
-  } catch {
-    return
-  }
-  for (const ent of entries) {
-    const full = path.join(root, ent.name)
-    if (ent.isDirectory()) {
-      yield* walkMeta(full)
-    } else if (ent.isFile() && ent.name === engine.META_NAME) {
-      yield full
+/**
+ * 库的目录结构固定为 <根>/<分类>/<对话>/meta.json，故只下钻两层。
+ * 不限深度地递归整库，在库根被误设成大目录时会退化成遍历整块磁盘。
+ */
+const LIBRARY_DEPTH = 2
+
+/** 列出库内所有 meta.json 路径（异步、限深）。 */
+async function listMetaFiles(root: string): Promise<string[]> {
+  const out: string[] = []
+  const walk = async (dir: string, depth: number): Promise<void> => {
+    let entries: fs.Dirent[]
+    try {
+      entries = await fsp.readdir(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const ent of entries) {
+      const full = path.join(dir, ent.name)
+      if (ent.isDirectory()) {
+        if (depth < LIBRARY_DEPTH) await walk(full, depth + 1)
+      } else if (ent.isFile() && ent.name === engine.META_NAME) {
+        out.push(full)
+      }
     }
   }
+  await walk(root, 0)
+  return out
 }
 
-/** 按 sessionId 找已存在的导出目录（递归扫描 meta.json）。 */
-export function findExisting(root: string, sessionId: string): string | null {
+/**
+ * 按 sessionId 找已存在的导出目录，供导出复用同一目录（幂等）。
+ *
+ * 改为异步：此前是同步 readdirSync/readFileSync 递归全库，每次导出都要把所有 meta.json
+ * 读一遍并解析——GUI 里补导出时会直接卡住主进程事件循环，且开销随库规模线性增长。
+ */
+export async function findExisting(root: string, sessionId: string): Promise<string | null> {
   if (!sessionId) return null
-  let isDir = false
   try {
-    isDir = fs.statSync(root).isDirectory()
+    if (!(await fsp.stat(root)).isDirectory()) return null
   } catch {
     return null
   }
-  if (!isDir) return null
-  for (const metaPath of walkMeta(root)) {
+  const metas = await listMetaFiles(root)
+  const found = await mapLimit(metas, 8, async (metaPath) => {
     try {
-      const m = JSON.parse(fs.readFileSync(metaPath, 'utf-8')) as MetaJson
-      if (m.sessionId === sessionId) return path.dirname(metaPath)
+      const m = JSON.parse(await fsp.readFile(metaPath, 'utf-8')) as MetaJson
+      return m.sessionId === sessionId ? path.dirname(metaPath) : null
     } catch {
-      continue
+      return null
     }
-  }
-  return null
+  })
+  return found.find((x): x is string => x !== null) ?? null
 }
 
-/** 原子写入字节：写 .name.tmp（fsync）后 rename。 */
+/** 临时文件名带 pid：GUI 补导出与 SessionEnd 钩子进程可能同时导出同一 session，不能撞同一个 .tmp。 */
+function tmpPathFor(filePath: string): string {
+  return path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.tmp`)
+}
+
+/** 原子写入字节：写 .name.<pid>.tmp（fsync）后 rename。 */
 function atomicWriteBytes(filePath: string, data: Buffer): void {
-  const tmp = path.join(path.dirname(filePath), '.' + path.basename(filePath) + '.tmp')
+  const tmp = tmpPathFor(filePath)
   const fd = fs.openSync(tmp, 'w')
   try {
     fs.writeSync(fd, data)
@@ -98,7 +120,7 @@ function atomicWriteText(filePath: string, text: string): void {
 }
 
 function atomicCopy(src: string, dst: string): void {
-  const tmp = path.join(path.dirname(dst), '.' + path.basename(dst) + '.tmp')
+  const tmp = tmpPathFor(dst)
   fs.copyFileSync(src, tmp)
   fs.renameSync(tmp, dst)
 }

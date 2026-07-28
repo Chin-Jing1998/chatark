@@ -116,7 +116,7 @@ export async function exportSession(args: ExportArgs): Promise<ExportOutcome> {
   const conv = buildConversation(parsed.records, { sourcePath: sourceJsonl, stats: parsed.stats })
   const arts = engine.textArtifacts(conv, false)
   const category = conv.category || '其他'
-  const existing = writer.findExisting(historyRoot, conv.session_id)
+  const existing = await writer.findExisting(historyRoot, conv.session_id)
   const targetDir = existing ?? path.join(historyRoot, category, writer.folderName(conv))
 
   try {

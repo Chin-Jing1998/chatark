@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, promises as fsp } from 'node:fs'
 import { scan } from '../fs/scan'
 import { searchService } from './search'
 import { DEFAULT_LIBRARY_REL } from '@shared/constants'
 
-const root = join(homedir(), ...DEFAULT_LIBRARY_REL)
+const root = process.env.CHATARK_TEST_LIBRARY || join(homedir(), ...DEFAULT_LIBRARY_REL)
 const maybe = existsSync(root) ? describe : describe.skip
 
 maybe('全文搜索（真实库）', () => {
@@ -46,5 +46,29 @@ maybe('全文搜索（真实库）', () => {
     // 修复前：build 末尾 dirty=false 覆盖了上面的置脏 → 仍用旧 20 条索引 → 有命中（bug）
     // 修复后：dirty 保持 → 重建为空 sources → 零命中
     expect(hits.length).toBe(0)
+  })
+
+  it('增量重建：指纹未变的对话不重读磁盘', async () => {
+    const r = await scan(root)
+    const records = r.records.slice(0, 30)
+
+    searchService.setSource(records)
+    await searchService.query('权利要求') // 首次构建，读盘
+
+    const readFile = vi.spyOn(fsp, 'readFile')
+    try {
+      // 同一批记录（指纹相同）再次注入 → 应全部复用已索引正文，一次盘都不读
+      searchService.setSource(records)
+      await searchService.query('权利要求')
+      expect(readFile).not.toHaveBeenCalled()
+
+      // 指纹变化的那一条必须被重读
+      const changed = records.map((x, i) => (i === 0 ? { ...x, fingerprint: 'changed' } : x))
+      searchService.setSource(changed)
+      await searchService.query('权利要求')
+      expect(readFile).toHaveBeenCalledTimes(records[0].files.md.exists ? 1 : 0)
+    } finally {
+      readFile.mockRestore()
+    }
   })
 })

@@ -1,6 +1,7 @@
 import { promises as fs, type Dirent } from 'node:fs'
 import { join, dirname, relative, resolve, isAbsolute, sep } from 'node:path'
-import { fail, ok, type MigrationProgress, type OpResult } from '@shared/types'
+import { fail, ok, type MigrationOutcome, type MigrationProgress, type OpResult } from '@shared/types'
+import { trashPath } from '../fs/trash'
 
 /** a 是否包含 b（b 在 a 内部或二者相同）。 */
 function contains(a: string, b: string): boolean {
@@ -106,7 +107,7 @@ export async function runMigration(
   newRoot: string,
   onProgress: (p: MigrationProgress) => void,
   onSwitch: () => void
-): Promise<OpResult<{ movedFiles: number }>> {
+): Promise<OpResult<MigrationOutcome>> {
   if (oldRoot === newRoot) return fail('INVALID_INPUT', '新旧路径相同')
   // 防数据丢失：新旧路径不得互相嵌套（否则删源会连带删掉已复制的目标）
   if (contains(oldRoot, newRoot) || contains(newRoot, oldRoot)) {
@@ -168,11 +169,12 @@ export async function runMigration(
   onProgress({ phase: 'switching', copiedBytes, totalBytes, copiedFiles, totalFiles })
   onSwitch()
 
-  // 删源（校验已过，安全）
-  await deleteSourceTopLevel(oldRoot).catch(() => undefined)
+  // 删源：校验已过，但一律走系统回收站而非 fs.rm —— 万一 walk 快照与磁盘实际内容有出入
+  // （例如迁移期间有外部写入），用户仍能从回收站取回。失败不回滚已完成的迁移，只据实上报。
+  const trashed = await trashSourceTopLevel(oldRoot)
 
   onProgress({ phase: 'done', copiedBytes, totalBytes, copiedFiles, totalFiles })
-  return ok({ movedFiles: totalFiles })
+  return ok({ movedFiles: totalFiles, sourceKept: trashed.failed })
 }
 
 /**
@@ -205,12 +207,23 @@ async function rollbackTargets(
   }
 }
 
-/** 删除源根下的顶层条目（迁移后清空旧库，但保留旧库根目录本身）。 */
-async function deleteSourceTopLevel(oldRoot: string): Promise<void> {
-  const entries = await fs.readdir(oldRoot, { withFileTypes: true })
-  for (const e of entries) {
-    await fs.rm(join(oldRoot, e.name), { recursive: true, force: true }).catch(() => undefined)
+/**
+ * 把源根下的顶层条目移入系统回收站（迁移后清空旧库，保留旧库根目录本身）。
+ * 返回未能移入回收站、仍留在原地的条目名——调用方据此告知用户需手动清理。
+ */
+async function trashSourceTopLevel(oldRoot: string): Promise<{ failed: string[] }> {
+  const failed: string[] = []
+  let entries: Dirent<string>[]
+  try {
+    entries = await fs.readdir(oldRoot, { withFileTypes: true })
+  } catch {
+    return { failed }
   }
+  for (const e of entries) {
+    const r = await trashPath(join(oldRoot, e.name))
+    if (!r.ok) failed.push(e.name)
+  }
+  return { failed }
 }
 
 function msg(e: unknown): string {

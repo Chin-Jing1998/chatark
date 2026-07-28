@@ -10,6 +10,7 @@ import type {
   ImportResult,
   ListQuery,
   ListResult,
+  MigrationOutcome,
   MigrationProgress,
   OpResult,
   OrgMeta,
@@ -80,8 +81,8 @@ export interface ChatArkApi {
     getRoot(): Promise<string>
     /** 弹目录选择框，返回所选路径或 null */
     pickRoot(): Promise<string | null>
-    /** 更换库根并自动迁移旧根全部内容 */
-    setRoot(newRoot: string): Promise<OpResult<{ movedFiles: number }>>
+    /** 更换库根并自动迁移旧根全部内容（旧根内容迁移后移入回收站） */
+    setRoot(newRoot: string): Promise<OpResult<MigrationOutcome>>
   }
 
   // —— 补录 ——

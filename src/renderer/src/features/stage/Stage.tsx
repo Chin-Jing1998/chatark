@@ -31,8 +31,11 @@ export default function Stage({ onOpenCommand, dragging = false }: Props): JSX.E
   }, [state.activeId])
 
   // 接收对话 iframe 内“点击文件链接”的请求，在应用内新标签打开该文件。
-  // 对话 HTML 属不可信外部内容（可能来自导入的第三方包），故对上抛路径做约束：
-  // 必须为绝对路径，且拒绝密钥/凭证类敏感目录，避免被植入脚本诱导展示敏感文件。
+  // 对话 HTML 属不可信外部内容（可能来自导入的第三方包）。
+  //
+  // 注意：下面的校验**不是安全防线**——渲染层的任何检查都可能被绕过。真正的防线在主进程：
+  // convo://open-file 的 handler 会 realpath 后强制校验路径落在库根或某个对话 cwd 之内
+  // （见 src/main/protocol/handler.ts）。此处只做快速失败，避免为注定 403 的路径白开一个标签。
   useEffect(() => {
     const SENSITIVE = [
       /[/\\]\.ssh[/\\]/i,

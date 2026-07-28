@@ -3,6 +3,7 @@ import { IPC } from '@shared/ipc-channels'
 import { findUnexported, reexport, type ReexportResult, type UnexportedSession } from '../services/backfill/scan-raw'
 import { importPackageDir, type ImportResult } from '../services/backfill/import'
 import { installHook, uninstallHook, hookStatus, type HookStatus } from '../services/hook/install'
+import { library } from '../services/library'
 import type { OpResult } from '@shared/types'
 
 function broadcastLibrary(): void {
@@ -28,7 +29,9 @@ export function registerBackfillIpc(): void {
     const win = BrowserWindow.fromWebContents(e.sender)
     const opts: OpenDialogOptions = {
       properties: ['openDirectory', 'multiSelections'],
-      title: '选择要导入的对话文件夹'
+      title: '选择要导入的对话文件夹',
+      // Electron 43 起 defaultPath 缺省指向"下载"而非系统记忆目录，显式给出库根更合用
+      defaultPath: library.getRoot()
     }
     const r = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
     return r.canceled ? [] : r.filePaths

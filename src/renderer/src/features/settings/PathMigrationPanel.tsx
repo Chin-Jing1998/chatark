@@ -33,14 +33,24 @@ export default function PathMigrationPanel(): JSX.Element {
     setError(null)
     const picked = await window.api.library.pickRoot()
     if (!picked || picked === root) return
-    if (!confirm(`将把当前库全部内容迁移到：\n${picked}\n\n迁移完成前不会删除旧数据。继续？`)) return
+    const okToGo = await window.api.ui.confirm({
+      message: '更换历史库保存路径？',
+      detail: `将把当前库全部内容迁移到：\n${picked}\n\n复制并逐文件校验通过后，旧路径下的内容会被移入系统回收站（可恢复）。`,
+      confirmLabel: '开始迁移'
+    })
+    if (!okToGo) return
     setMigrating(true)
     setProgress(null)
     const r = await window.api.library.setRoot(picked)
     setMigrating(false)
     if (r.ok) {
       setRoot(picked)
-      setMsg(`迁移完成，共 ${r.data.movedFiles} 个文件`)
+      const kept = r.data.sourceKept
+      setMsg(
+        kept.length > 0
+          ? `迁移完成，共 ${r.data.movedFiles} 个文件。旧路径下有 ${kept.length} 项未能移入回收站，仍留在原处，可手动清理。`
+          : `迁移完成，共 ${r.data.movedFiles} 个文件，旧路径内容已移入回收站。`
+      )
       await reload()
     } else {
       setError(r.message)
@@ -75,7 +85,8 @@ export default function PathMigrationPanel(): JSX.Element {
       {msg && <div className="text-sm text-emerald-600 dark:text-emerald-400">{msg}</div>}
       {error && <div className="text-sm text-destructive">迁移失败：{error}</div>}
       <p className="text-xs text-muted-foreground">
-        采用「复制 → 校验 → 切换 → 删源」，校验通过前绝不删除旧数据；新旧路径不得互相嵌套。
+        采用「复制 → 校验 → 切换 → 旧路径移入回收站」，校验通过前绝不动旧数据；新旧路径不得互相嵌套。
+        不能选用主目录、桌面、文稿等个人数据总入口作为库根——请在其下新建专用子目录。
       </p>
     </div>
   )

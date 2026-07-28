@@ -39,6 +39,19 @@ interface State {
 
 const RECENTS_KEY = 'chatark-recent'
 const OPENED_AT_KEY = 'chatark-opened-at'
+/**
+ * 打开时间表的保留条数上限。此表每打开一个对话就添一条且从不淘汰，
+ * 不封顶会随使用年限单调增长（对话删了条目也留着），最终撑爆 localStorage 配额、
+ * 一旦写入失败连"最近打开"也跟着失效。只保留最近打开的这些条足够排序用。
+ */
+const MAX_OPENED_AT = 500
+
+/** 按打开时间倒序裁剪到上限。 */
+function capOpenedAt(map: Record<string, number>): Record<string, number> {
+  const entries = Object.entries(map)
+  if (entries.length <= MAX_OPENED_AT) return map
+  return Object.fromEntries(entries.sort((a, b) => b[1] - a[1]).slice(0, MAX_OPENED_AT))
+}
 
 function loadRecents(): string[] {
   try {
@@ -59,7 +72,8 @@ function loadOpenedAt(): Record<string, number> {
     for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
       if (typeof v === 'number') out[k] = v
     }
-    return out
+    // 老版本可能已存下超量条目，读入时一并收敛
+    return capOpenedAt(out)
   } catch {
     return {}
   }
@@ -130,7 +144,7 @@ function reducer(state: State, action: Action): State {
         activeId: action.tab.id,
         recentIds,
         tabRecency: recency.filter((id) => tabs.some((t) => t.id === id)),
-        openedAt: { ...state.openedAt, [action.tab.id]: action.at }
+        openedAt: capOpenedAt({ ...state.openedAt, [action.tab.id]: action.at })
       }
     }
     case 'OPEN_FILE': {
