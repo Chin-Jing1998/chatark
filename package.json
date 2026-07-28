@@ -2,6 +2,7 @@
   "name": "chatark",
   "version": "0.2.0",
   "description": "ChatArk — Claude Code 历史对话管理平台",
+  "desktopName": "chatark.desktop",
   "main": "./out/main/index.js",
   "author": "ChatArk",
   "license": "MIT",

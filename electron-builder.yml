@@ -43,8 +43,9 @@ linux:
   category: Utility
   # 同 mac：默认命名下 x64 产物不带架构后缀，与 arm64 版并列时无法分辨
   artifactName: ChatArk-${version}-${arch}.${ext}
-  # 让桌面环境能把运行中的窗口关联到 .desktop 条目（否则任务栏图标不正确）
-  desktopName: chatark.desktop
+  # 让桌面环境能把运行中的窗口关联到 .desktop 条目（否则任务栏图标不正确）。
+  # 注意 desktopName 属于 package.json 顶层字段，linux 段这里只放开关
+  syncDesktopName: true
   synopsis: Claude Code 历史对话管理平台
 
 nsis:
