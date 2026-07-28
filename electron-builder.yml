@@ -18,6 +18,9 @@ mac:
   target:
     - dmg
   icon: build/icon.icns
+  # 显式带上 arch：默认命名会让 x64 产物没有架构后缀（ChatArk-<版本>.dmg），
+  # 与 arm64 版并列时无法分辨，公开分发容易下错
+  artifactName: ChatArk-${version}-${arch}.${ext}
   # 个人分发：未签名时收件人需右键打开；如有证书可在此配置 identity 与 notarize
 
 win:
@@ -38,6 +41,11 @@ linux:
     - AppImage
     - deb
   category: Utility
+  # 同 mac：默认命名下 x64 产物不带架构后缀，与 arm64 版并列时无法分辨
+  artifactName: ChatArk-${version}-${arch}.${ext}
+  # 让桌面环境能把运行中的窗口关联到 .desktop 条目（否则任务栏图标不正确）
+  desktopName: chatark.desktop
+  synopsis: Claude Code 历史对话管理平台
 
 nsis:
   oneClick: false
