@@ -1,0 +1,92 @@
+name: 构建三平台安装包
+
+# 触发：手动运行，或推送 v* tag 时自动出 Release
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write # 允许创建 Release、上传产物
+
+jobs:
+  build:
+    name: 打包 ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      # 一个平台失败不应连累其余两个——三份产物相互独立
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows
+            platform: win
+            patterns: |
+              release/*.exe
+              release/*.blockmap
+          - os: macos-latest
+            label: macOS
+            platform: mac
+            patterns: |
+              release/*.dmg
+              release/*.blockmap
+          - os: ubuntu-latest
+            label: Linux
+            platform: linux
+            patterns: |
+              release/*.AppImage
+              release/*.deb
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 编译渲染/主/预加载
+        run: npm run build
+
+      - name: 打包 ${{ matrix.label }}（x64 + arm64）
+        # 无原生模块，两个架构均为纯替换 Electron 运行时，可在单一 runner 上交叉产出
+        run: npx electron-builder --${{ matrix.platform }} --x64 --arm64 --publish never
+        env:
+          # 无签名证书：显式关掉自动查找，避免 macOS 上因找不到身份而报错中断
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: 上传构建产物（每次运行均保留）
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChatArk-${{ matrix.label }}
+          path: ${{ matrix.patterns }}
+          if-no-files-found: error
+
+  release:
+    name: 汇总发布
+    needs: build
+    # 仅 tag 触发时发布；即使个别平台构建失败，也把已成功的产物发出去
+    if: startsWith(github.ref, 'refs/tags/') && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载全部平台产物
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 列出待发布文件
+        run: ls -lh dist/
+
+      - name: 发布 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**
+          fail_on_unmatched_files: true
