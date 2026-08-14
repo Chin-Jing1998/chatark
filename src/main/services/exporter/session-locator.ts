@@ -67,6 +67,7 @@ export interface QuickInfo {
   cwd: string
   title: string
   turns: number
+  model: string | null
   mtimeMs: number
 }
 
@@ -76,7 +77,7 @@ function sliceCodepoints(s: string, max: number): string {
   return arr.length <= max ? s : arr.slice(0, max).join('')
 }
 
-/** 轻量扫描一个 jsonl，取 sessionId / cwd / 标题 / 回合数。 */
+/** 轻量扫描一个 jsonl，取 sessionId / cwd / 标题 / 回合数 / 主导模型。 */
 export async function quickInfo(jsonlPath: string): Promise<QuickInfo> {
   let sid = ''
   let cwd = ''
@@ -84,6 +85,8 @@ export async function quickInfo(jsonlPath: string): Promise<QuickInfo> {
   let users = 0
   let assistants = 0
   let firstPrompt = ''
+  const modelCounts = new Map<string, number>()
+  const modelOrder: string[] = []
   try {
     const text = await fs.readFile(jsonlPath, 'utf-8')
     for (const rawLine of text.split(/\r\n|\r|\n/)) {
@@ -104,10 +107,17 @@ export async function quickInfo(jsonlPath: string): Promise<QuickInfo> {
       const t = o['type']
       if (t === 'user' || t === 'assistant') {
         const msg = o['message']
-        const content =
-          msg && typeof msg === 'object' && !Array.isArray(msg)
-            ? (msg as Record<string, unknown>)['content']
-            : undefined
+        const m = msg && typeof msg === 'object' && !Array.isArray(msg) ? (msg as Record<string, unknown>) : null
+        // 模型众数统计对所有 assistant 行生效（含噪声行），对齐 model.pickModel 语义
+        if (t === 'assistant') {
+          const mdl = m ? m['model'] : undefined
+          if (mdl) {
+            const key = String(mdl)
+            if (!modelCounts.has(key)) modelOrder.push(key)
+            modelCounts.set(key, (modelCounts.get(key) || 0) + 1)
+          }
+        }
+        const content = m ? m['content'] : undefined
         const txt = textutil.extractText(content)
         if (!txt || textutil.isNoise(txt)) continue
         if (t === 'assistant') {
@@ -121,12 +131,21 @@ export async function quickInfo(jsonlPath: string): Promise<QuickInfo> {
   } catch {
     // 读失败：返回尽力而为的占位
   }
+  // 众数模型（排除 <synthetic>，并列取先出现者），对齐 model.pickModel 语义
+  let model: string | null = null
+  for (const key of [...modelOrder].sort((a, b) => (modelCounts.get(b) || 0) - (modelCounts.get(a) || 0))) {
+    if (key !== '<synthetic>') {
+      model = key
+      break
+    }
+  }
   const stem = path.basename(jsonlPath).replace(/\.jsonl$/, '')
   return {
     sessionId: sid || stem,
     cwd,
     title: title || firstPrompt || '(未命名)',
     turns: users + assistants,
+    model,
     mtimeMs: await safeMtimeMs(jsonlPath)
   }
 }

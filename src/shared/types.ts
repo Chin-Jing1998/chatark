@@ -189,6 +189,8 @@ export interface UnexportedSession {
   title: string
   cwd: string
   turns: number
+  /** 主导模型（quickInfo 众数），haiku 主导会话已过滤不展示 */
+  model?: string
   mtimeMs: number
 }
 

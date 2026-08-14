@@ -22,12 +22,15 @@ export async function findUnexported(): Promise<UnexportedSession[]> {
     } catch {
       info = null
     }
+    // haiku 主导会话不导出：补导出列表直接不展示
+    if (info?.model && info.model.toLowerCase().includes('haiku')) return
     out.push({
       sessionId: c.sessionId,
       path: c.path,
       title: info?.title || '(未命名)',
       cwd: info?.cwd || '',
       turns: info?.turns || 0,
+      model: info?.model ?? undefined,
       mtimeMs: c.mtimeMs
     })
   })
@@ -54,9 +57,10 @@ export async function reexport(
       if (!p) {
         failed++
       } else {
-        const r = await exportSession({ sourceJsonl: p, historyRoot: root })
+        const r = await exportSession({ sourceJsonl: p, historyRoot: root, titleMode: 'llm' })
         if (r.ok) exported++
-        else skipped++
+        else if (r.skipped) skipped++
+        else failed++
       }
       done++
       onProgress?.(done, sessionIds.length)

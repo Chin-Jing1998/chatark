@@ -104,6 +104,7 @@ async function collectCleanSamples(): Promise<Sample[]> {
       const conv = buildConversation(parsed.records, { sourcePath: c.source, stats: parsed.stats })
       if (conv.session_id !== c.meta.sessionId) continue
       if (conv.message_count !== c.meta.messageCount) continue // 源相对 golden 漂移则剔除
+      if (conv.title !== c.meta.title) continue // 标题被维护重命名等改过则剔除
       clean.push({ ...c, conv })
     } catch {
       continue

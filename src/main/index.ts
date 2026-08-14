@@ -5,7 +5,7 @@ import { registerIpc } from './ipc'
 import { registerConvoScheme } from './protocol/register'
 import { handleConvo } from './protocol/handler'
 import { restartLibraryWatch, closeLibraryWatch } from './watch-manager'
-import { parseHeadlessArgs, runHeadlessExport } from './export-headless'
+import { parseHeadlessArgs, runHeadlessExport, runHeadlessMaintain } from './export-headless'
 import { installAppMenu } from './app-menu'
 import { pruneStaleTmp } from './services/hook/install'
 
@@ -80,9 +80,10 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  // 无界面导出模式（自动导出钩子 / 脚本）：跑完即退，不开窗
+  // 无界面模式（自动导出钩子 / 脚本 / 存量库维护）：跑完即退，不开窗
   if (headless) {
-    void runHeadlessExport(headless)
+    if (headless.mode === 'maintain') void runHeadlessMaintain(headless)
+    else void runHeadlessExport(headless)
     return
   }
 

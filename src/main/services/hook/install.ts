@@ -171,7 +171,8 @@ export function installHook(replacePython = false): Promise<OpResult<HookStatus>
     }
     sessionEnd.push({
       matcher: '',
-      hooks: [{ type: 'command', command: appCommand(), timeout: 20, async: true }]
+      // 60s：SessionEnd 自动导出含 LLM 标题生成（15s 上限）+ Electron 启动，20s 会在落盘中途被杀
+      hooks: [{ type: 'command', command: appCommand(), timeout: 60, async: true }]
     })
     hooks.SessionEnd = sessionEnd
 

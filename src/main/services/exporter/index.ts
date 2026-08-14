@@ -17,6 +17,7 @@ import * as renderHtmlMod from './render-html'
 import * as renderJsMod from './render-js'
 import * as renderMdMod from './render-md'
 import * as titler from './titler'
+import { fallbackTitle, generateTitle, sampleEventText, type TitleSource } from './titlegen'
 import * as writer from './writer'
 import type { ParseResult } from './jsonl-parser'
 import { type BuildOptions, type Conversation, type RawRecord } from './types'
@@ -87,6 +88,8 @@ export function folderName(conv: Conversation): string {
 export interface ExportArgs {
   sourceJsonl: string
   historyRoot: string
+  /** 'existing' = 保持现状（titler 兜底）；'llm' = claude CLI 生成中文主题标题，失败回退现有标题 */
+  titleMode?: 'existing' | 'llm'
 }
 
 export interface ExportOutcome {
@@ -94,6 +97,8 @@ export interface ExportOutcome {
   dir?: string
   meta?: MetaJson
   reason?: string
+  /** true = 因 haiku 模型主导被跳过（非错误，headless 退出码应为 0） */
+  skipped?: boolean
 }
 
 /** 高层导出：解析 → gate → build → 分类 → 渲染 → 写 5 件套，原子落盘到
@@ -114,6 +119,23 @@ export async function exportSession(args: ExportArgs): Promise<ExportOutcome> {
   }
 
   const conv = buildConversation(parsed.records, { sourcePath: sourceJsonl, stats: parsed.stats })
+
+  // haiku 主导的查询/摘要会话（常为自动摘要等一次性任务）不入库
+  if (conv.model && conv.model.toLowerCase().includes('haiku')) {
+    return { ok: false, reason: 'haiku 模型主导的查询/摘要会话，跳过导出', skipped: true }
+  }
+
+  // LLM 主题标题：claude CLI 生成，失败回退本地规则（去污染标题 → cwd 目录名）
+  if (args.titleMode === 'llm') {
+    const src: TitleSource = {
+      cwd: conv.cwd,
+      text: sampleEventText(conv.events),
+      existingTitle: conv.title
+    }
+    const t = (await generateTitle(src)) ?? fallbackTitle(src)
+    if (t) conv.title = t
+  }
+
   const arts = engine.textArtifacts(conv, false)
   const category = conv.category || '其他'
   const existing = await writer.findExisting(historyRoot, conv.session_id)
