@@ -27,14 +27,13 @@ import {
   type Conversation
 } from './index'
 import type { MetaJson } from '@shared/types'
-import { DEFAULT_LIBRARY_REL } from '@shared/constants'
+import { resolveTestLibraryRoot } from '../../test-support/library-root'
 
 /**
  * 黄金样本取自使用者本机的真实历史库，故路径不写死在仓库里：
- * 优先取环境变量 CHATARK_TEST_LIBRARY，否则回退到默认库根；两者都不存在时整组跳过。
+ * CHATARK_TEST_LIBRARY > 应用配置 historyRoot > 默认库根；均不可用时整组跳过。
  */
-const HISTORY_ROOT =
-  process.env.CHATARK_TEST_LIBRARY || path.join(os.homedir(), ...DEFAULT_LIBRARY_REL)
+const HISTORY_ROOT = resolveTestLibraryRoot() ?? ''
 
 interface Candidate {
   dir: string
@@ -147,10 +146,16 @@ function cleanup(dir: string): void {
 const samples = await collectCleanSamples()
 
 describe('TS 导出器黄金样本回归', () => {
-  if (samples.length === 0) {
-    it.skip('未找到可用样本（sourcePath 不存在或全部漂移），跳过', () => {})
+  if (!HISTORY_ROOT) {
+    it.skip('未找到可用历史库，跳过', () => {})
     return
   }
+
+  // 库可用而样本为 0 说明守卫已失效（候选全漂移或被预筛清空），必须报警而非静默跳过
+  it('样本集非空', () => {
+    expect(samples.length).toBeGreaterThan(0)
+  })
+  if (samples.length === 0) return
 
   for (const s of samples) {
     const name = path.basename(s.dir)

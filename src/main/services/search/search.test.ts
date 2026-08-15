@@ -1,13 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-import { existsSync, promises as fsp } from 'node:fs'
+import { promises as fsp } from 'node:fs'
 import { scan } from '../fs/scan'
 import { searchService } from './search'
-import { DEFAULT_LIBRARY_REL } from '@shared/constants'
+import { resolveTestLibraryRoot } from '../../test-support/library-root'
 
-const root = process.env.CHATARK_TEST_LIBRARY || join(homedir(), ...DEFAULT_LIBRARY_REL)
-const maybe = existsSync(root) ? describe : describe.skip
+// 库根解析：CHATARK_TEST_LIBRARY > 应用配置 > 默认路径，空库视同无库；找不到时整组跳过
+const root = resolveTestLibraryRoot() ?? ''
+const maybe = root ? describe : describe.skip
 
 maybe('全文搜索（真实库）', () => {
   it('能按正文/标题命中并按精确子串校验', async () => {

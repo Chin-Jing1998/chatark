@@ -1,13 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-import { existsSync } from 'node:fs'
 import { scan } from './scan'
-import { DEFAULT_LIBRARY_REL } from '@shared/constants'
+import { resolveTestLibraryRoot } from '../../test-support/library-root'
 
-// 库根可用 CHATARK_TEST_LIBRARY 覆盖；仅在本机存在真实库时运行（其它机器跳过，不致 CI 失败）
-const root = process.env.CHATARK_TEST_LIBRARY || join(homedir(), ...DEFAULT_LIBRARY_REL)
-const maybe = existsSync(root) ? describe : describe.skip
+// 库根解析：CHATARK_TEST_LIBRARY > 应用配置 > 默认路径，空库视同无库；找不到时整组跳过，不致 CI 失败
+const root = resolveTestLibraryRoot() ?? ''
+const maybe = root ? describe : describe.skip
 
 maybe('扫描真实历史库', () => {
   // 断言一律走"结构自洽"而非绝对数量：库会随日常使用与自动导出钩子持续增长，

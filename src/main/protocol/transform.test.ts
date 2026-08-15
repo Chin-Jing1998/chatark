@@ -1,9 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { transformConversationHtml } from './transform'
-import { DEFAULT_LIBRARY_REL } from '@shared/constants'
+import { resolveTestLibraryRoot } from '../test-support/library-root'
 import { THEME_MESSAGE, OPEN_FILE_MESSAGE } from '@shared/viewer'
 
 describe('transformConversationHtml（合成输入，确定性）', () => {
@@ -77,7 +76,7 @@ describe('transformConversationHtml（合成输入，确定性）', () => {
 
 // 真实对话 HTML：file:// 多为运行时动态生成，故仅校验主题/embed/脚本注入（静态可见部分）。
 // 从库里现取一份，而非写死某个对话目录名——那份一旦被改名/删除，本组会静默跳过、失去保护。
-const libraryRoot = process.env.CHATARK_TEST_LIBRARY || join(homedir(), ...DEFAULT_LIBRARY_REL)
+const libraryRoot = resolveTestLibraryRoot()
 
 function findAnyConversationHtml(root: string): string | null {
   let categories: string[]
@@ -101,11 +100,12 @@ function findAnyConversationHtml(root: string): string | null {
   return null
 }
 
-const htmlPath = findAnyConversationHtml(libraryRoot)
+const htmlPath = libraryRoot ? findAnyConversationHtml(libraryRoot) : null
 const maybe = htmlPath ? describe : describe.skip
 
 maybe('transformConversationHtml（真实对话 HTML）', () => {
-  const raw = readFileSync(htmlPath as string, 'utf8')
+  // describe.skip 的 body 在收集阶段仍会执行，htmlPath 为 null 时不能直接 readFileSync
+  const raw = htmlPath ? readFileSync(htmlPath, 'utf8') : ''
   it('原 HTML 含 data-theme="auto" 与 embed 支持', () => {
     expect(raw).toMatch(/<html\b[^>]*data-theme="auto"/i)
   })
