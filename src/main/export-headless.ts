@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import { exportSession, listSessions } from './services/exporter'
+import { TITLEGEN_ENV_MARK } from './services/exporter/titlegen'
 import { runLibraryMaintain } from './services/library-maintain'
 import { isMigrationLocked } from './services/migration/lock'
 import { getLibraryRoot } from './services/settings/store'
@@ -9,6 +10,8 @@ interface HeadlessArgs {
   value?: string
   dryRun?: boolean
   limit?: number
+  /** 真正搬移 haiku 目录的显式确认；缺省只列清单 */
+  confirm?: boolean
 }
 
 /** 解析无界面导出参数：--export <jsonl|sessionId>、--export-stdin（SessionEnd JSON）或 --library-maintain（存量库维护）。 */
@@ -19,6 +22,7 @@ export function parseHeadlessArgs(argv: string[]): HeadlessArgs | null {
     return {
       mode: 'maintain',
       dryRun: argv.includes('--dry-run'),
+      confirm: argv.includes('--confirm'),
       limit: Number.isFinite(raw) && raw > 0 ? raw : undefined
     }
   }
@@ -85,6 +89,14 @@ function writeAndFlush(stream: NodeJS.WriteStream, text: string): Promise<void> 
 export async function runHeadlessExport(args: HeadlessArgs): Promise<void> {
   silenceEpipe()
 
+  // 自激循环第一道防线：本次会话由 titlegen 派生的 claude 产生（标记经 claude 传到本钩子进程）。
+  // 导出它只会再次派生 claude，无限链式；退出码 0——跳过不是错误。
+  if (process.env[TITLEGEN_ENV_MARK]) {
+    await writeAndFlush(process.stderr, '本次会话由标题生成派生，跳过自动导出\n')
+    app.exit(0)
+    return
+  }
+
   // 迁移进行中：让路。此时写入旧库根的会话不在迁移的文件快照内，会被删源一并清掉。
   // 退出码取 0——自动导出钩子失败会打断用户的 Claude Code 会话，而"这次没导出"并非错误。
   if (isMigrationLocked()) {
@@ -114,7 +126,11 @@ export async function runHeadlessExport(args: HeadlessArgs): Promise<void> {
 export async function runHeadlessMaintain(args: HeadlessArgs): Promise<void> {
   silenceEpipe()
   try {
-    const report = await runLibraryMaintain(getLibraryRoot(), { dryRun: args.dryRun, limit: args.limit })
+    const report = await runLibraryMaintain(getLibraryRoot(), {
+      dryRun: args.dryRun,
+      confirm: args.confirm,
+      limit: args.limit
+    })
     await writeAndFlush(process.stdout, `${JSON.stringify(report, null, 2)}\n`)
     app.exit(0)
   } catch (e) {

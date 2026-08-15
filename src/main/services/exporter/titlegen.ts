@@ -9,7 +9,7 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { promisify } from 'node:util'
 
 import { sanitizeTitleForDir } from '../fs/paths'
@@ -30,11 +30,26 @@ const MAX_TITLE_LEN = 12
 const MAX_DIR_TITLE_LEN = 16
 const SINGLE_BUDGET = 6000 // 单条输入字符预算
 const BATCH_BUDGET = 1500 // 批量时每条预算（标题只需梗概，避免单 prompt 过大）
-const BATCH_SIZE = 12
+export const BATCH_SIZE = 12
 
-/** 自动会话注入 prompt 的污染前缀（现库 "Below is a conversation log fr..." 即此类）。 */
+/**
+ * titlegen 子进程环境标记：随 claude 子进程传递，claude 的 SessionEnd 钩子进程会继承它。
+ * 无头导出见到该标记即拒绝导出，是自激循环的第一道防线（第二道见 POLLUTION_RE）。
+ */
+export const TITLEGEN_ENV_MARK = 'CHATARK_TITLEGEN'
+
+/**
+ * 自动会话注入 prompt 的污染前缀（现库 "Below is a conversation log fr..." 即此类）。
+ * 后两项是本模块自身的 prompt：titlegen 派生的 claude 会话会被钩子回捞导出，
+ * 据此在导出门槛处识别并跳过，避免无限自激。
+ */
 const POLLUTION_RE =
-  /^(Analyze this conversation|Below is a conversation log|Below is a conversation|Please analyze|Analyze the)/i
+  /^(Analyze this conversation|Below is a conversation log|Below is a conversation|Please analyze|Analyze the|你是对话标题生成器|为下面\s*\d+\s*个对话各生成)/i
+
+/** 文本（首条用户消息或现有标题）是否为自动注入 prompt。 */
+export function isPollutedPrompt(text: string): boolean {
+  return POLLUTION_RE.test((text ?? '').trim())
+}
 
 const NOT_LOGGED_IN_RE = /not logged in|please run \/login/i
 
@@ -52,9 +67,13 @@ export function findClaudeBin(env: NodeJS.ProcessEnv = process.env): string | nu
   const override = env['CHATARK_CLAUDE_BIN']
   if (override && existsSync(override)) return override
   const dirs = [join(homedir(), '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin']
-  const candidates = [...(env['PATH'] ?? '').split(':'), ...dirs].map((d) => join(d, 'claude'))
-  for (const p of candidates) {
-    if (existsSync(p)) return p
+  // Windows 的 PATH 以 ';' 分隔且 claude 带 .cmd/.exe 扩展名，写死 ':' + 无扩展名会恒定找不到
+  const names = process.platform === 'win32' ? ['claude.cmd', 'claude.exe', 'claude'] : ['claude']
+  for (const d of [...(env['PATH'] ?? '').split(delimiter), ...dirs]) {
+    for (const n of names) {
+      const p = join(d, n)
+      if (existsSync(p)) return p
+    }
   }
   return null
 }
@@ -65,7 +84,13 @@ async function runClaude(bin: string, prompt: string, timeoutMs: number): Promis
     const { stdout } = await execFileAsync(bin, ['-p', '--output-format', 'text', prompt], {
       timeout: timeoutMs,
       maxBuffer: 64 * 1024,
-      env: process.env
+      // 标记随 claude 子进程传给它的 SessionEnd 钩子，无头导出据此拒绝导出本次派生会话。
+      // 实测 claude 无参数可关钩子：--settings '{"hooks":{}}' 与 '{"hooks":{"SessionEnd":[]}}'
+      // 均按合并语义处理、钩子照常触发；--bare 能关但同时禁用 OAuth 登录态，会让本功能失效。
+      env: { ...process.env, [TITLEGEN_ENV_MARK]: '1' },
+      // ponytail: win32 的 claude 多为 .cmd 批处理，execFile 不经 shell 无法执行；
+      // Node ≥18.20 已为 cmd.exe 转义参数，若日后要彻底不过 shell 可改走 stdin 传 prompt
+      shell: process.platform === 'win32'
     })
     if (NOT_LOGGED_IN_RE.test(stdout)) {
       claudeUnavailable = true
@@ -101,7 +126,7 @@ function trimTrailingOpenParen(s: string): string {
 export function fallbackTitle(src: TitleSource): string {
   const existing = textutil.cleanInline(src.existingTitle ?? '')
   // 污染标题（自动会话注入 prompt）整体视为无效，不走剥离残留
-  if (existing && existing !== '未命名会话' && !POLLUTION_RE.test(existing)) {
+  if (existing && existing !== '未命名会话' && !isPollutedPrompt(existing)) {
     return sliceCodepoints(sanitizeTitleForDir(existing), MAX_TITLE_LEN)
   }
   const seg = (src.cwd || '').replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean)
@@ -155,6 +180,8 @@ export async function generateTitles(
     const raw = await runClaude(bin, prompt, opts?.timeoutMs ?? 20000)
     const parsed = parseBatchJson(raw)
     for (const [k, title] of parsed) {
+      // 模型可能回传越界/小数 index：直接采信会写错槽位或把 out 撑成稀疏数组
+      if (!Number.isInteger(k) || k < i || k >= i + chunk.length) continue
       const c = cleanTitle(title)
       if (c) out[k] = c
     }

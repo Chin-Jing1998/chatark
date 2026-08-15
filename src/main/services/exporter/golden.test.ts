@@ -23,6 +23,7 @@ import {
   renderJsSerialized,
   renderMd,
   shouldExport,
+  skipReason,
   type Conversation
 } from './index'
 import type { MetaJson } from '@shared/types'
@@ -102,6 +103,7 @@ async function collectCleanSamples(): Promise<Sample[]> {
       const parsed = await parseJsonl(c.source)
       if (!shouldExport(parsed)) continue
       const conv = buildConversation(parsed.records, { sourcePath: c.source, stats: parsed.stats })
+      if (skipReason(conv)) continue // haiku / 自动注入 prompt 派生的会话不会被导出，剔除
       if (conv.session_id !== c.meta.sessionId) continue
       if (conv.message_count !== c.meta.messageCount) continue // 源相对 golden 漂移则剔除
       if (conv.title !== c.meta.title) continue // 标题被维护重命名等改过则剔除

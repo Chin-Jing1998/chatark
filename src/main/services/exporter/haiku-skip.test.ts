@@ -99,6 +99,29 @@ describe('haiku 主导会话跳过导出', () => {
     rmSync(tmp, { recursive: true, force: true })
   })
 
+  /**
+   * titlegen 自激循环第二道防线：LLM 起标题派生的 claude 会话本身是 1 问 1 答，
+   * 越过 gate 后若被导出，又会再派生一个 claude —— 无限链式。
+   */
+  it('首条用户消息为标题生成 prompt 的会话跳过导出', async () => {
+    const prompts = [
+      '你是对话标题生成器。根据下面的项目路径与对话内容，用中文生成一个不超过 12 个字的主题标题。',
+      '为下面 12 个对话各生成一个中文主题标题（每个不超过 12 个字，不要引号/标点/解释）。'
+    ]
+    for (const prompt of prompts) {
+      const tmp = tempRoot()
+      const src = writeTemp(
+        [makeLine('user', null, prompt), makeLine('assistant', 'claude-opus-5', '答复审查意见')].join('\n')
+      )
+      const historyRoot = path.join(tmp, 'history')
+      const r = await exportSession({ sourceJsonl: src, historyRoot })
+      expect(r.ok).toBe(false)
+      expect(r.skipped).toBe(true)
+      expect(exists(historyRoot)).toBe(false)
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
   it('无 model 字段的旧转录不跳过（保守保留）', async () => {
     const tmp = tempRoot()
     const src = writeTemp(makeTranscript(null))

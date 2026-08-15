@@ -17,10 +17,10 @@ import * as renderHtmlMod from './render-html'
 import * as renderJsMod from './render-js'
 import * as renderMdMod from './render-md'
 import * as titler from './titler'
-import { fallbackTitle, generateTitle, sampleEventText, type TitleSource } from './titlegen'
+import { fallbackTitle, generateTitle, isPollutedPrompt, sampleEventText, type TitleSource } from './titlegen'
 import * as writer from './writer'
 import type { ParseResult } from './jsonl-parser'
-import { type BuildOptions, type Conversation, type RawRecord } from './types'
+import { EventType, type BuildOptions, type Conversation, type RawRecord } from './types'
 
 // ---- 类型与底层模块再导出，便于集成层按需取用 ----
 export * from './types'
@@ -53,6 +53,22 @@ export function buildConversation(records: RawRecord[], opts: BuildConvOptions =
 /** gate：是否值得导出（基于已解析记录，逻辑与 Python gate 一致）。 */
 export function shouldExport(parsed: ParseResult): boolean {
   return gate.shouldExport(parsed)
+}
+
+/**
+ * gate 之外的入库判定：haiku 主导的一次性会话、以及自动注入 prompt 派生的会话
+ * （含本应用 titlegen 起标题派生的 claude 会话——导出它会再派生 claude，无限自激）。
+ * 返回跳过原因，null 表示可导出。
+ */
+export function skipReason(conv: Conversation): string | null {
+  if (conv.model && conv.model.toLowerCase().includes('haiku')) {
+    return 'haiku 模型主导的查询/摘要会话，跳过导出'
+  }
+  const firstPrompt = conv.events.find((e) => e.etype === EventType.USER_PROMPT)
+  if (firstPrompt && isPollutedPrompt(firstPrompt.text)) {
+    return '自动注入 prompt 派生的会话（如标题生成），跳过导出'
+  }
+  return null
 }
 
 /** 生成 meta.json 规范结构。 */
@@ -120,10 +136,8 @@ export async function exportSession(args: ExportArgs): Promise<ExportOutcome> {
 
   const conv = buildConversation(parsed.records, { sourcePath: sourceJsonl, stats: parsed.stats })
 
-  // haiku 主导的查询/摘要会话（常为自动摘要等一次性任务）不入库
-  if (conv.model && conv.model.toLowerCase().includes('haiku')) {
-    return { ok: false, reason: 'haiku 模型主导的查询/摘要会话，跳过导出', skipped: true }
-  }
+  const skip = skipReason(conv)
+  if (skip) return { ok: false, reason: skip, skipped: true }
 
   // LLM 主题标题：claude CLI 生成，失败回退本地规则（去污染标题 → cwd 目录名）
   if (args.titleMode === 'llm') {
