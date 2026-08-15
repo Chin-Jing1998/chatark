@@ -1,6 +1,6 @@
 {
   "name": "chatark",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "ChatArk — Claude Code 历史对话管理平台",
   "desktopName": "chatark.desktop",
   "main": "./out/main/index.js",
