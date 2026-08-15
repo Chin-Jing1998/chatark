@@ -32,12 +32,6 @@ jobs:
             patterns: |
               release/*.dmg
               release/*.blockmap
-          - os: ubuntu-latest
-            label: Linux
-            platform: linux
-            patterns: |
-              release/*.AppImage
-              release/*.deb
 
     steps:
       - name: 检出代码
