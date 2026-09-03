@@ -4,6 +4,7 @@ import Explorer from '@renderer/features/explorer/Explorer'
 import SearchPanel from '@renderer/features/search/SearchPanel'
 import StarredPanel from '@renderer/features/starred/StarredPanel'
 import TagsPanel from '@renderer/features/tags/TagsPanel'
+import ProjectsPanel from '@renderer/features/projects/ProjectsPanel'
 
 interface Props {
   view: RailView
@@ -29,6 +30,7 @@ export default function LeftPanel({ view, width, animate }: Props): JSX.Element 
         {view === 'search' && <SearchPanel active />}
         {view === 'starred' && <StarredPanel />}
         {view === 'tags' && <TagsPanel />}
+        {view === 'projects' && <ProjectsPanel />}
       </div>
     </aside>
   )

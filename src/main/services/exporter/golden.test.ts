@@ -236,12 +236,17 @@ describe('TS 导出器黄金样本回归', () => {
     for (const f of ['对话.md', '对话.html', 'data.js', 'meta.json', 'transcript.jsonl']) {
       expect(existsSync(path.join(dir, f)), `缺少 ${f}`).toBe(true)
     }
-    expect(path.basename(dir)).toBe(folderName(s.conv))
+    // 新目录一律用本地规则标题（不等 LLM），故目录名由落盘的 meta.title 反推
+    const written = JSON.parse(readFileSync(path.join(dir, 'meta.json'), 'utf-8')) as MetaJson
+    expect(written.titleSource).toBe('local')
+    expect(outcome.titleSource).toBe('local')
+    expect(path.basename(dir)).toBe(folderName({ ...s.conv, title: written.title ?? '' }))
     // 落盘的 md 与直接渲染一致
-    expect(readFileSync(path.join(dir, '对话.md'), 'utf-8')).toBe(renderMd(s.conv))
-    // 幂等：再次导出复用同目录
+    expect(readFileSync(path.join(dir, '对话.md'), 'utf-8')).toBe(renderMd({ ...s.conv, title: written.title ?? '' }))
+    // 幂等：源转录未变，第二次直接判定 unchanged 并复用同目录
     const again = await exportSession({ sourceJsonl: s.source, historyRoot: tmpRoot })
     expect(again.ok).toBe(true)
+    expect(again.unchanged).toBe(true)
     expect(again.dir).toBe(dir)
     cleanup(tmpRoot)
   })

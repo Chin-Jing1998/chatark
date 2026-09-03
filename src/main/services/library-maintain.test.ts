@@ -17,6 +17,8 @@ const NOW = new Date('2026-08-14T10:30:00')
 const LONG_TITLE = '答复第一次审查意见通知书补正说明'
 const GOOD_DIR = '其他/20260103_000000_答复审查意见_dddddddd'
 const LONG_HAIKU_DIR = '专利/20260101_000002_haiku长会话_ffffffff'
+/** 库根第一层的游离对话目录（历史上手工拖拽丢了分类层）：不在维护范围内 */
+const STRAY_DIR = '20260105_000000_游离会话_hhhhhhhh'
 
 /** 构造临时库：<root>/<分类或扁平>/<会话目录>/{meta.json, transcript.jsonl}。 */
 function buildLibrary(): string {
@@ -44,6 +46,12 @@ function buildLibrary(): string {
     title: 'Below is a conversation log from Claude Code'
   })
   conv(GOOD_DIR, { model: 'claude-opus-5', cwd: '/p/审查', title: LONG_TITLE })
+  // 根层游离目录：污染标题，但因不在 <根>/<分类>/<对话> 布局内，一律不被扫描与改名
+  conv(STRAY_DIR, {
+    model: 'claude-opus-5',
+    cwd: '/p/游离',
+    title: 'Below is a conversation log from Claude Code'
+  })
   // 无 meta 的分类目录（模拟 专利/ 本身）——扫描应排除
   mkdirSync(path.join(root, '学术'), { recursive: true })
   // 损坏 meta 的会话目录——计入 skippedNoMeta 且不被清理/重命名
@@ -129,10 +137,12 @@ describe('library-maintain', () => {
     expect(existsSync(path.join(root, LONG_HAIKU_DIR))).toBe(true)
     expect(existsSync(path.join(root, '专利/20260101_000003_haiku无计数_gggggggg'))).toBe(true)
 
-    // 污染标题目录：目录名与 meta.title 均已更新
+    // 污染标题目录：目录名与 meta.title 均已更新，来源记为 llm
     const renamed = path.join(root, '专利/20260102_000000_专利答复撰写_cccccccc')
     expect(existsSync(renamed)).toBe(true)
-    expect(JSON.parse(readFileSync(path.join(renamed, 'meta.json'), 'utf8')).title).toBe('专利答复撰写')
+    const renamedMeta = JSON.parse(readFileSync(path.join(renamed, 'meta.json'), 'utf8'))
+    expect(renamedMeta.title).toBe('专利答复撰写')
+    expect(renamedMeta.titleSource).toBe('llm')
 
     // H2：LLM 对该条失败，长标题原样保留而非被截成 12 码点
     expect(titleOf(root, GOOD_DIR)).toBe(LONG_TITLE)
@@ -161,11 +171,21 @@ describe('library-maintain', () => {
     rmSync(root, { recursive: true, force: true })
   })
 
-  it('listConversationDirs 跳过点目录且只收含 meta.json 的目录', async () => {
+  it('listConversationDirs 跳过点目录、根层游离目录，只收 <根>/<分类>/<对话>', async () => {
     const root = buildLibrary()
     const dirs = await listConversationDirs(root)
-    expect(dirs.length).toBe(7) // 6 个会话 + 1 个坏 meta 目录
+    expect(dirs.length).toBe(7) // 6 个会话 + 1 个坏 meta 目录（游离目录不计入）
     expect(dirs.some((d) => d.includes('.trash'))).toBe(false)
+    expect(dirs.some((d) => path.basename(d) === STRAY_DIR)).toBe(false)
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('根层游离目录不被维护：既不改名也不搬移', async () => {
+    const root = buildLibrary()
+    await runLibraryMaintain(root, { titleGen: stubTitleGen, confirm: true, now: NOW })
+
+    expect(existsSync(path.join(root, STRAY_DIR))).toBe(true)
+    expect(titleOf(root, STRAY_DIR)).toBe('Below is a conversation log from Claude Code')
     rmSync(root, { recursive: true, force: true })
   })
 })

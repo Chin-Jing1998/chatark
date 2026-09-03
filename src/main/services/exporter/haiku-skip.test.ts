@@ -1,9 +1,10 @@
 /**
  * haiku 主导会话跳过导出：gate 通过（≥1 助手回合且 ≥2 实质消息）但主导模型为
  * haiku 时，exportSession 返回 { ok:false, skipped:true } 且不落盘；同构非 haiku
- * 会话正常导出。全部写入临时目录，不触碰真实历史库。
+ * 会话正常导出。另覆盖标题来源契约（local / user 沿用 / 污染替换）与 unchanged 跳过。
+ * 全部写入临时目录，不触碰真实历史库。
  */
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -130,5 +131,117 @@ describe('haiku 主导会话跳过导出', () => {
     expect(r.ok).toBe(true)
     expect(r.skipped).toBeUndefined()
     rmSync(tmp, { recursive: true, force: true })
+  })
+})
+
+const FIVE_FILES = ['对话.md', '对话.html', 'data.js', 'meta.json', 'transcript.jsonl']
+/** 转录首条提问，经 titler → fallbackTitle 后原样保留（8 码点，未超 12） */
+const LOCAL_TITLE = '帮我整理这份文件'
+
+/** 五件套的纳秒级 mtime 指纹：判定"是否被重写"，精度足以区分毫秒内的连续两次写。 */
+function fingerprint(dir: string): string[] {
+  return FIVE_FILES.map((f) => String(statSync(path.join(dir, f), { bigint: true }).mtimeNs))
+}
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+function readMeta(dir: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(path.join(dir, 'meta.json'), 'utf8'))
+}
+
+function writeMeta(dir: string, patch: Record<string, unknown>): void {
+  const p = path.join(dir, 'meta.json')
+  writeFileSync(p, JSON.stringify({ ...readMeta(dir), ...patch }, null, 2), 'utf8')
+}
+
+describe('标题来源与重导出', () => {
+  it('首次导出用本地标题，titleSource 记为 local 且目录名同步', async () => {
+    const tmp = tempRoot()
+    const historyRoot = path.join(tmp, 'history')
+
+    const r = await exportSession({ sourceJsonl: writeTemp(makeTranscript('claude-opus-5')), historyRoot })
+
+    expect(r.ok).toBe(true)
+    expect(r.titleSource).toBe('local')
+    const dir = r.dir as string
+    expect(readMeta(dir).title).toBe(LOCAL_TITLE)
+    expect(readMeta(dir).titleSource).toBe('local')
+    expect(path.basename(dir)).toContain(LOCAL_TITLE)
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('源转录未增长时返回 unchanged，五件套一个字节都不重写', async () => {
+    const tmp = tempRoot()
+    const historyRoot = path.join(tmp, 'history')
+    const src = writeTemp(makeTranscript('claude-opus-5'))
+
+    const first = await exportSession({ sourceJsonl: src, historyRoot })
+    const dir = first.dir as string
+    const before = fingerprint(dir)
+    await sleep(20)
+
+    const again = await exportSession({ sourceJsonl: src, historyRoot })
+
+    expect(again.ok).toBe(true)
+    expect(again.unchanged).toBe(true)
+    expect(again.dir).toBe(dir)
+    expect(again.meta?.sessionId).toBe(SID)
+    expect(fingerprint(dir)).toEqual(before)
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('用户手改的标题在重导出时原样沿用，titleSource 保持 user', async () => {
+    const tmp = tempRoot()
+    const historyRoot = path.join(tmp, 'history')
+    const src = writeTemp(makeTranscript('claude-opus-5'))
+    const dir = (await exportSession({ sourceJsonl: src, historyRoot })).dir as string
+    writeMeta(dir, { title: '用户改名', titleSource: 'user' })
+    appendFileSync(src, '\n' + makeLine('assistant', 'claude-opus-5', '补充一段'), 'utf8')
+
+    const r = await exportSession({ sourceJsonl: src, historyRoot })
+
+    expect(r.ok).toBe(true)
+    expect(r.unchanged).toBeUndefined()
+    expect(r.dir).toBe(dir)
+    expect(r.titleSource).toBe('user')
+    expect(readMeta(dir).title).toBe('用户改名')
+    expect(readMeta(dir).titleSource).toBe('user')
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('既有污染标题被本地回退标题替换（cwd 末级目录名）', async () => {
+    const tmp = tempRoot()
+    const historyRoot = path.join(tmp, 'history')
+    const src = writeTemp(makeTranscript('claude-opus-5'))
+    const dir = (await exportSession({ sourceJsonl: src, historyRoot })).dir as string
+    writeMeta(dir, { title: '你是对话标题生成器。根据下面的项目路径与对话内容', titleSource: 'llm' })
+    appendFileSync(src, '\n' + makeLine('assistant', 'claude-opus-5', '补充一段'), 'utf8')
+
+    const r = await exportSession({ sourceJsonl: src, historyRoot })
+
+    expect(r.titleSource).toBe('local')
+    expect(readMeta(dir).title).toBe('项目A') // cwd = /Users/me/项目A
+    expect(readMeta(dir).titleSource).toBe('local')
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('titleMode 缺省时完全不拉起 claude', async () => {
+    const tmp = tempRoot()
+    const historyRoot = path.join(tmp, 'history')
+    const marker = path.join(tmp, 'claude-called.txt')
+    const stub = path.join(tmp, 'claude-stub.sh')
+    writeFileSync(stub, `#!/bin/sh\ntouch "${marker}"\necho 不该出现的标题\n`, { mode: 0o755 })
+    const prev = process.env.CHATARK_CLAUDE_BIN
+    process.env.CHATARK_CLAUDE_BIN = stub
+
+    try {
+      const r = await exportSession({ sourceJsonl: writeTemp(makeTranscript('claude-opus-5')), historyRoot })
+      expect(r.ok).toBe(true)
+      expect(exists(marker)).toBe(false)
+      expect(readMeta(r.dir as string).title).toBe(LOCAL_TITLE)
+    } finally {
+      if (prev === undefined) delete process.env.CHATARK_CLAUDE_BIN
+      else process.env.CHATARK_CLAUDE_BIN = prev
+      rmSync(tmp, { recursive: true, force: true })
+    }
   })
 })

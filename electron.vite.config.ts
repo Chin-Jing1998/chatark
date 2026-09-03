@@ -59,7 +59,9 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/main/index.ts')
+          index: resolve(__dirname, 'src/main/index.ts'),
+          // 纯 Node 无头入口：SessionEnd 钩子与后台导出 worker 走它，不加载 Electron
+          headless: resolve(__dirname, 'src/main/headless.ts')
         }
       }
     },

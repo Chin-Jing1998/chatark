@@ -18,11 +18,19 @@ export interface FilePresence {
 
 export type ConversationFiles = Record<FileKind, FilePresence>
 
+/**
+ * 标题来源：'llm' = claude 生成的主题标题；'local' = 本地规则回退（LLM 未跑或失败）；
+ * 'user' = 用户手动改名。重导出时只重试 'local'，'user' 与 'llm' 一律沿用。
+ * 旧 meta 无此字段时按 'llm' 对待（仅在标题污染或未命名时才重起）。
+ */
+export type TitleSourceKind = 'llm' | 'local' | 'user'
+
 /** meta.json 的规范结构（schemaVersion=1）；导入残缺包时字段可能缺失，故除核心外均可选。 */
 export interface MetaJson {
   schemaVersion?: number
   sessionId?: string
   title?: string
+  titleSource?: TitleSourceKind
   category?: string
   model?: string
   cwd?: string
@@ -106,6 +114,8 @@ export interface ConversationSummary {
   endedAt: string
   /** 导出时间（meta.exportedAt，ISO 字符串）；用于“导出时间”排序 */
   exportedAt: string
+  /** 会话工作目录（meta.cwd）；用于“按项目”视图分组，缺失时为空串 */
+  cwd: string
   /** 对话文件夹磁盘创建时间（毫秒，birthtime）；用于“创建时间”排序 */
   createdAtMs: number
   messageCount: number
@@ -125,6 +135,7 @@ export function toSummary(rec: ConversationRecord): ConversationSummary {
     startedAt: rec.startedAt,
     endedAt: rec.endedAt,
     exportedAt: rec.meta.exportedAt ?? '',
+    cwd: rec.meta.cwd ?? '',
     createdAtMs: rec.createdAtMs,
     messageCount: rec.messageCount,
     totalSizeBytes: rec.totalSizeBytes,
@@ -213,6 +224,12 @@ export interface ImportResult {
 export interface HookStatus {
   installed: boolean
   pythonHookPresent: boolean
+  /** 已安装的我方条目与当前版本期望形态不一致（命令、timeout 或 async），需重新安装 */
+  needsUpdate: boolean
+  /** 自动导出诊断日志的绝对路径 */
+  logPath: string
+  /** 该日志文件当前是否存在（不存在时「打开日志」不可用） */
+  logExists: boolean
 }
 
 /** 补录进度 */

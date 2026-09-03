@@ -13,6 +13,12 @@ export const ORG_SIDECAR = 'chatark.json'
 /** 对话目录名规则：YYYYMMDD_HHMMSS_标题_8位哈希 */
 export const DIR_NAME_RE = /^(\d{8})_(\d{6})_(.+)_([0-9a-f]{8})$/
 
+/**
+ * 虚拟分类名：库根第一层的游离对话目录（物理上没有分类层）归入此组。
+ * 它不是磁盘上的目录名，因此不得作为「改分类」的目标。
+ */
+export const UNCATEGORIZED = '未归类'
+
 /** 默认历史库根（相对用户主目录），与 chat_export/paths.py 一致 */
 export const DEFAULT_LIBRARY_REL = ['claude code 编程项目研究', 'claude code历史对话记录'] as const
 

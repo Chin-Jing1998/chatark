@@ -9,13 +9,20 @@ import type {
   OpResult,
   OrgMeta
 } from '@shared/types'
-import type { RescanSummary } from '@shared/api'
+import { fail, ok } from '@shared/types'
+import type { RelocateResult, RescanSummary } from '@shared/api'
 import { library } from '../services/library'
+import { broadcastLibraryChanged } from '../watch-manager'
+
+/** 跳过目录明细的上送上限：仅供界面提示，全量列表对渲染层无用且可能很长。 */
+const MAX_SKIPPED_ITEMS = 50
 
 /** 注册对话相关 IPC。 */
 export function registerConversationsIpc(): void {
   ipcMain.handle(IPC.convList, async (_e, query: ListQuery = {}): Promise<ListResult> => {
     await library.ensureLoaded()
+    // mtime 探针：库根有外部改动才重扫。探针本身出错不应让整个列表失败
+    await library.refreshIfStale().catch(() => undefined)
     return library.list(query)
   })
 
@@ -26,7 +33,23 @@ export function registerConversationsIpc(): void {
 
   ipcMain.handle(IPC.convRescan, async (): Promise<RescanSummary> => {
     const r = await library.rescan()
-    return { total: r.records.length, scannedDirs: r.scannedDirs, skipped: r.skipped.length, tookMs: r.tookMs }
+    return {
+      total: r.records.length,
+      scannedDirs: r.scannedDirs,
+      skipped: r.skipped.length,
+      skippedItems: r.skipped.slice(0, MAX_SKIPPED_ITEMS),
+      tookMs: r.tookMs
+    }
+  })
+
+  ipcMain.handle(IPC.convRelocateUncategorized, async (): Promise<OpResult<RelocateResult>> => {
+    try {
+      const data = await library.relocateUncategorized()
+      broadcastLibraryChanged()
+      return ok(data)
+    } catch (e) {
+      return fail('IO_ERROR', `归位失败：${e instanceof Error ? e.message : e}`)
+    }
   })
 
   ipcMain.handle(

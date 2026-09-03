@@ -33,11 +33,31 @@ export interface ConfirmOptions {
   danger?: boolean
 }
 
+/** 扫描中被跳过的目录（非对话目录、不可读目录等）。 */
+export interface SkippedItem {
+  path: string
+  reason: string
+}
+
 export interface RescanSummary {
   total: number
   scannedDirs: number
   skipped: number
+  /** 被跳过目录的明细（主进程按 50 条截断，仅供界面提示，不作统计口径） */
+  skippedItems: SkippedItem[]
   tookMs: number
+}
+
+/** 「未归类」归位失败的单条说明。 */
+export interface RelocateFailure {
+  title: string
+  message: string
+}
+
+/** 「全部归位」的执行结果。 */
+export interface RelocateResult {
+  moved: number
+  failed: RelocateFailure[]
 }
 
 export interface ChatArkApi {
@@ -63,6 +83,8 @@ export interface ChatArkApi {
     setOrg(id: string, partial: Partial<OrgMeta>): Promise<OpResult<ConversationSummary>>
     reveal(id: string): Promise<OpResult>
     openExternal(id: string): Promise<OpResult>
+    /** 把「未归类」的对话全部移入各自 meta 记录的分类（未记录则移入「其他」） */
+    relocateUncategorized(): Promise<OpResult<RelocateResult>>
   }
 
   // —— 任意文件 ——

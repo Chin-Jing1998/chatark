@@ -6,6 +6,7 @@ import Stage from '@renderer/features/stage/Stage'
 import TopBand from '@renderer/features/shell/TopBand'
 import CommandPalette from '@renderer/features/command/CommandPalette'
 import SettingsDialog from '@renderer/features/settings/SettingsDialog'
+import { useHookUpdateNotice } from '@renderer/features/settings/useHookUpdateNotice'
 
 const RAIL_WIDTH = 48
 const DEFAULT_LEFT = 240
@@ -30,6 +31,8 @@ export default function Layout(): JSX.Element {
   })
 
   const openSettings = (tab = 'general'): void => setSettings({ open: true, tab })
+
+  useHookUpdateNotice()
 
   const setWidth = useCallback((px: number) => {
     setLeftWidth(Math.min(MAX_LEFT, Math.max(MIN_LEFT, Math.round(px))))

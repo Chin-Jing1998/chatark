@@ -8,6 +8,8 @@ import {
   type ReactNode
 } from 'react'
 import { KNOWN_CATEGORIES, type ConversationSummary } from '@shared/types'
+import { UNCATEGORIZED } from '@shared/constants'
+import type { RescanSummary, SkippedItem } from '@shared/api'
 import { appendCapped, bump, type Tab } from './tabs'
 
 export type { Tab } from './tabs'
@@ -35,6 +37,8 @@ interface State {
   tabRecency: string[]
   /** 对话在本应用中的最近打开时间（毫秒），持久化；用于“打开时间”排序 */
   openedAt: Record<string, number>
+  /** 最近一次显式重扫的跳过情况（未重扫过为 null），用于界面提示 */
+  lastRescan: { skipped: number; skippedItems: SkippedItem[] } | null
 }
 
 const RECENTS_KEY = 'chatark-recent'
@@ -83,6 +87,7 @@ type Action =
   | { type: 'LOAD_START' }
   | { type: 'LOAD_OK'; summaries: ConversationSummary[]; byCategory: Record<string, number>; total: number; tookMs: number }
   | { type: 'LOAD_ERR'; error: string }
+  | { type: 'RESCAN_DONE'; skipped: number; skippedItems: SkippedItem[] }
   | { type: 'SET_FILTER'; filter: Filter }
   | { type: 'OPEN_TAB'; tab: Tab; at: number }
   | { type: 'OPEN_FILE'; tab: Tab }
@@ -106,7 +111,8 @@ const initialState: State = {
   lastScanMs: 0,
   recentIds: [],
   tabRecency: [],
-  openedAt: {}
+  openedAt: {},
+  lastRescan: null
 }
 
 /** 惰性初始化：从 localStorage 恢复最近打开列表与打开时间。 */
@@ -129,6 +135,11 @@ function reducer(state: State, action: Action): State {
       }
     case 'LOAD_ERR':
       return { ...state, loading: false, error: action.error }
+    case 'RESCAN_DONE':
+      return {
+        ...state,
+        lastRescan: { skipped: action.skipped, skippedItems: action.skippedItems }
+      }
     case 'SET_FILTER':
       return { ...state, filter: action.filter }
     case 'SET_ROOT':
@@ -214,7 +225,8 @@ interface StoreApi {
   renameTab: (id: string, title: string) => void
   updateTab: (oldId: string, newId: string, title: string) => void
   reorderTab: (fromId: string, toId: string) => void
-  rescan: () => Promise<void>
+  /** 显式重扫：返回扫描摘要（失败时为 null，错误已写入 state.error） */
+  rescan: () => Promise<RescanSummary | null>
   reload: () => Promise<void>
 }
 
@@ -257,13 +269,20 @@ export function StoreProvider({ children }: { children: ReactNode }): JSX.Elemen
     }
   }, [])
 
-  const rescan = useCallback(async () => {
+  const rescan = useCallback(async (): Promise<RescanSummary | null> => {
     dispatch({ type: 'LOAD_START' })
     try {
-      await window.api.conv.rescan()
+      const summary = await window.api.conv.rescan()
+      dispatch({
+        type: 'RESCAN_DONE',
+        skipped: summary.skipped,
+        skippedItems: summary.skippedItems
+      })
       await reload()
+      return summary
     } catch (e) {
       dispatch({ type: 'LOAD_ERR', error: e instanceof Error ? e.message : String(e) })
+      return null
     }
   }, [reload])
 
@@ -321,17 +340,22 @@ export function useStore(): StoreApi {
   return ctx
 }
 
-/** 有序分类：已知分类在前（按约定顺序），其余按字母序补后。 */
+/** 有序分类：已知分类在前（按约定顺序），其余按字母序补后，虚拟分组「未归类」固定排最后。 */
 export function selectOrderedCategories(state: State): string[] {
   const present = Object.keys(state.byCategory)
   const known: string[] = KNOWN_CATEGORIES.filter((c) => present.includes(c))
-  const extra = present.filter((c) => !known.includes(c)).sort()
-  return [...known, ...extra]
+  const extra = present.filter((c) => !known.includes(c) && c !== UNCATEGORIZED).sort()
+  const tail = present.includes(UNCATEGORIZED) ? [UNCATEGORIZED] : []
+  return [...known, ...extra, ...tail]
 }
 
-/** 全部可选分类（含未出现的已知分类），用于“改分类”菜单。 */
+/**
+ * 全部可选分类（含未出现的已知分类），用于“改分类”菜单。
+ * 「未归类」是虚拟分组、磁盘上并无该目录，不能作为移动目标，故剔除。
+ */
 export function selectAllCategories(state: State): string[] {
-  return [...new Set<string>([...KNOWN_CATEGORIES, ...Object.keys(state.byCategory)])]
+  const present = Object.keys(state.byCategory).filter((c) => c !== UNCATEGORIZED)
+  return [...new Set<string>([...KNOWN_CATEGORIES, ...present])]
 }
 
 /** 依据当前 filter 计算可见对话。 */

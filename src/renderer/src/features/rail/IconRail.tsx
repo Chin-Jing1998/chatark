@@ -1,4 +1,4 @@
-import { Files, Search, Star, Tags, Settings, type LucideIcon } from 'lucide-react'
+import { Files, Search, Star, Tags, FolderGit2, Settings, type LucideIcon } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import {
   Tooltip,
@@ -7,14 +7,15 @@ import {
   TooltipTrigger
 } from '@renderer/components/ui/tooltip'
 
-/** 左侧活动栏可切换的四个视图。 */
-export type RailView = 'explorer' | 'search' | 'starred' | 'tags'
+/** 左侧活动栏可切换的五个视图。 */
+export type RailView = 'explorer' | 'search' | 'starred' | 'tags' | 'projects'
 
 const VIEWS: Array<{ key: RailView; label: string; icon: LucideIcon }> = [
   { key: 'explorer', label: '对话浏览器', icon: Files },
   { key: 'search', label: '全文搜索', icon: Search },
   { key: 'starred', label: '收藏 / 置顶', icon: Star },
-  { key: 'tags', label: '标签 / 分类', icon: Tags }
+  { key: 'tags', label: '标签 / 分类', icon: Tags },
+  { key: 'projects', label: '按项目', icon: FolderGit2 }
 ]
 
 interface Props {

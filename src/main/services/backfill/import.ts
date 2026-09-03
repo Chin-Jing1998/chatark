@@ -57,19 +57,18 @@ export async function importPackageDir(
   const targetCatDir = join(root, category)
   let target = join(targetCatDir, folder)
 
-  try {
-    await fs.mkdir(targetCatDir, { recursive: true })
-    // 目录名冲突（不同 sessionId 撞名）→ 递增后缀直到空闲路径，避免 fs.cp 覆盖已有会话
-    target = await findFreeTarget(target)
-    library.suppressWatch(30_000)
-    await fs.cp(srcDir, target, { recursive: true })
-    if (mode === 'move') await fs.rm(srcDir, { recursive: true, force: true })
-    await library.rescan()
-  } catch (e) {
-    return fail('IO_ERROR', `落盘失败：${e instanceof Error ? e.message : e}`)
-  } finally {
-    // 无论落盘/重扫是否抛错，都复位监听抑制，避免残留致库刷新失灵
-    library.suppressWatch(0)
-  }
-  return ok({ status: 'imported', sessionId, dir: target })
+  // 整段包进抑制：复制期间的监听回声不触发重扫，结束后由闸门统一重放一次
+  return library.runSuppressed(async (): Promise<OpResult<ImportResult>> => {
+    try {
+      await fs.mkdir(targetCatDir, { recursive: true })
+      // 目录名冲突（不同 sessionId 撞名）→ 递增后缀直到空闲路径，避免 fs.cp 覆盖已有会话
+      target = await findFreeTarget(target)
+      await fs.cp(srcDir, target, { recursive: true })
+      if (mode === 'move') await fs.rm(srcDir, { recursive: true, force: true })
+      await library.rescan()
+    } catch (e) {
+      return fail('IO_ERROR', `落盘失败：${e instanceof Error ? e.message : e}`)
+    }
+    return ok({ status: 'imported', sessionId, dir: target })
+  })
 }

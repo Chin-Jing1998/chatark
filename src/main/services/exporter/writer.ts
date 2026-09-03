@@ -8,7 +8,7 @@ import fs from 'node:fs'
 import { promises as fsp } from 'node:fs'
 import path from 'node:path'
 
-import type { MetaJson } from '@shared/types'
+import type { MetaJson, TitleSourceKind } from '@shared/types'
 
 import { mapLimit } from '../fs/paths'
 import * as engine from './engine'
@@ -49,7 +49,13 @@ export function folderName(conv: Conversation): string {
  */
 const LIBRARY_DEPTH = 2
 
-/** 列出库内所有 meta.json 路径（异步、限深）。 */
+/**
+ * 列出库内所有 meta.json 路径（异步、限深）。
+ *
+ * 只收 `<根>/<分类>/<对话>/meta.json`（即 depth === LIBRARY_DEPTH 处的文件）：库根第一层
+ * 游离着历史上手工拖拽丢了分类层的对话目录，此前任意层匹配会让 findExisting 把新导出写回
+ * 那些目录，而扫描器又不把它们计入索引，形成"永远显示未导出"的闭环。
+ */
 async function listMetaFiles(root: string): Promise<string[]> {
   const out: string[] = []
   const walk = async (dir: string, depth: number): Promise<void> => {
@@ -63,13 +69,40 @@ async function listMetaFiles(root: string): Promise<string[]> {
       const full = path.join(dir, ent.name)
       if (ent.isDirectory()) {
         if (depth < LIBRARY_DEPTH) await walk(full, depth + 1)
-      } else if (ent.isFile() && ent.name === engine.META_NAME) {
+      } else if (ent.isFile() && ent.name === engine.META_NAME && depth === LIBRARY_DEPTH) {
         out.push(full)
       }
     }
   }
   await walk(root, 0)
   return out
+}
+
+/** 读取导出目录内的 meta.json；不存在或损坏返回 null。 */
+export async function readExistingMeta(dir: string): Promise<MetaJson | null> {
+  try {
+    return JSON.parse(await fsp.readFile(path.join(dir, engine.META_NAME), 'utf-8')) as MetaJson
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 既有导出是否已与源转录同步：转录快照存在且字节数与源一致，且不是 light 导出。
+ * 转录只追加不改写，故字节数相等即可判定无新内容——据此跳过整轮重写与重新起名。
+ */
+export async function transcriptUnchanged(dir: string, sourceJsonl: string): Promise<boolean> {
+  const meta = await readExistingMeta(dir)
+  if (!meta || meta.light) return false
+  try {
+    const [snapshot, source] = await Promise.all([
+      fsp.stat(path.join(dir, engine.TRANSCRIPT_NAME)),
+      fsp.stat(sourceJsonl)
+    ])
+    return snapshot.isFile() && source.isFile() && snapshot.size === source.size
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -133,13 +166,15 @@ export interface WriteResult {
 /** 把一次导出写入 targetDir（原子）。
  *
  * light=true：仅写 md/html/js/meta，跳过原始转录拷贝（增量/实时同步用）。
+ * titleSource 记录本次落盘标题的来源，重导出据此决定是否重新起名。
  */
 export function writeExport(
   conv: Conversation,
   textArts: engine.TextArtifacts,
   targetDir: string,
   transcriptSrc: string | null = null,
-  light = false
+  light = false,
+  titleSource: TitleSourceKind = 'local'
 ): WriteResult {
   fs.mkdirSync(targetDir, { recursive: true })
 
@@ -161,6 +196,7 @@ export function writeExport(
 
   const meta = engine.metaDict(conv) as Record<string, unknown>
   meta.light = Boolean(light)
+  meta.titleSource = titleSource
   atomicWriteText(path.join(targetDir, engine.META_NAME), JSON.stringify(meta, null, 2))
 
   return { dir: targetDir, meta: meta as MetaJson }

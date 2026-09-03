@@ -4,8 +4,9 @@ import { CONVO_SCHEME } from '@shared/viewer'
 import { registerIpc } from './ipc'
 import { registerConvoScheme } from './protocol/register'
 import { handleConvo } from './protocol/handler'
-import { restartLibraryWatch, closeLibraryWatch } from './watch-manager'
-import { parseHeadlessArgs, runHeadlessExport, runHeadlessMaintain } from './export-headless'
+import { restartLibraryWatch, closeLibraryWatch, broadcastLibraryChanged } from './watch-manager'
+import { library } from './services/library'
+import { parseHeadlessArgs, runHeadlessCli } from './headless/cli'
 import { installAppMenu } from './app-menu'
 import { pruneStaleTmp } from './services/hook/install'
 
@@ -13,6 +14,34 @@ const headless = parseHeadlessArgs(process.argv)
 
 // 必须在 app ready 之前注册自定义协议为 privileged（仅 GUI 模式需要）
 if (!headless) registerConvoScheme()
+
+/**
+ * `--export-stdin` 启动器只做「读 stdin → 派生后台 worker」，不碰 Electron 任何能力。
+ * 不等 whenReady 就跑，让 SessionEnd 钩子尽快拿回控制权。
+ * AppImage 例外：其 execPath 在父进程退出即卸载的临时挂载点上，worker 只能 inline 跑，
+ * 故仍走 ready 之后的完整路径。
+ */
+const headlessBeforeReady = headless?.mode === 'stdin' && !process.env['APPIMAGE']
+
+/** 无头分支统一入口：worker 走打包出的 out/main/headless.js（纯 Node，run-as-node 启动）。 */
+function runHeadless(): Promise<number> {
+  const userData = app.getPath('userData')
+  // getLibraryRoot() 与 isMigrationLocked() 只认进程环境，不读这里注入的 userData：
+  // 不对齐则库根与迁移锁会落到平台默认目录，与本次导出用的 userData 分家。
+  process.env['CHATARK_USER_DATA'] = userData
+  return runHeadlessCli(process.argv, process.env, {
+    stdin: process.stdin,
+    execPath: process.execPath,
+    scriptPath: join(__dirname, 'headless.js'),
+    userData
+  })
+}
+
+if (headless) {
+  // 无头进程不该在 macOS 程序坞留下图标
+  app.dock?.hide()
+  if (headlessBeforeReady) void runHeadless().then((code) => app.exit(code))
+}
 
 // 窗口最小尺寸与默认尺寸（命名常量，禁硬编码散落）
 const WINDOW_DEFAULT = { width: 1320, height: 860, minWidth: 960, minHeight: 620 }
@@ -52,6 +81,17 @@ function createWindow(): BrowserWindow {
 
   win.on('ready-to-show', () => win.show())
 
+  // 回到窗口时补一次 mtime 探针：监听失灵（网络卷、监听数超限）或应用不在前台期间的
+  // 外部改动都靠它兜底；未变化时只有几十次 stat，不触发重扫。
+  win.on('focus', () => {
+    void library
+      .refreshIfStale()
+      .then((changed) => {
+        if (changed) broadcastLibraryChanged()
+      })
+      .catch(() => undefined)
+  })
+
   // 外链交系统浏览器，渲染进程绝不被导航离开；仅放行安全协议，拦截 file:/javascript: 等
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (isExternallyOpenable(url)) void shell.openExternal(url)
@@ -82,8 +122,7 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   // 无界面模式（自动导出钩子 / 脚本 / 存量库维护）：跑完即退，不开窗
   if (headless) {
-    if (headless.mode === 'maintain') void runHeadlessMaintain(headless)
-    else void runHeadlessExport(headless)
+    if (!headlessBeforeReady) void runHeadless().then((code) => app.exit(code))
     return
   }
 

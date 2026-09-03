@@ -15,6 +15,7 @@ export const IPC = {
   convSetOrg: 'conv:setOrg',
   convReveal: 'conv:reveal',
   convOpenExternal: 'conv:openExternal',
+  convRelocateUncategorized: 'conv:relocateUncategorized',
   // 任意文件：在系统文件管理器中定位（用于应用内打开的生成文件）
   fileReveal: 'file:reveal',
   // 搜索

@@ -11,7 +11,10 @@ import type { MetaJson } from '@shared/types'
 
 import { renameConversation } from './fs/rename'
 import { mapLimit } from './fs/paths'
-import { BATCH_SIZE, fallbackTitle, generateTitles, isPollutedPrompt, type TitleSource } from './exporter/titlegen'
+import { BATCH_SIZE, fallbackTitle, generateTitles, isFallbackAllowed, type TitleSource } from './exporter/titlegen'
+
+/** 判定逻辑随 POLLUTION_RE 一同落在 titlegen；此处保留导出以维持既有导入路径。 */
+export { isFallbackAllowed }
 
 export interface MaintainOptions {
   dryRun?: boolean
@@ -44,7 +47,11 @@ const LIBRARY_DEPTH = 2
 /** haiku 搬移的消息数上限：长会话即使用 haiku 也可能是真实工作，不做无差别清理 */
 const HAIKU_MAX_MESSAGES = 10
 
-/** 扫描库根下所有含 meta.json 的会话目录（分类目录无 meta 天然排除；深度 ≤2 与库布局对齐）。 */
+/**
+ * 扫描库根下所有会话目录，只认 `<根>/<分类>/<对话>/` 这一层（分类目录无 meta 天然排除）。
+ * 库根第一层的游离对话目录不在维护范围内：它们不进索引，批量改名会让用户在界面上
+ * 完全看不到变化。归位由界面的「未归类」分组处理。
+ */
 export async function listConversationDirs(root: string): Promise<string[]> {
   const out: string[] = []
   const walk = async (dir: string, depth: number): Promise<void> => {
@@ -59,7 +66,7 @@ export async function listConversationDirs(root: string): Promise<string[]> {
       const full = path.join(dir, ent.name)
       if (ent.isDirectory()) {
         if (depth < LIBRARY_DEPTH) await walk(full, depth + 1)
-      } else if (ent.isFile() && ent.name === 'meta.json') {
+      } else if (ent.isFile() && ent.name === 'meta.json' && depth === LIBRARY_DEPTH) {
         out.push(dir)
       }
     }
@@ -109,16 +116,6 @@ function extractText(content: unknown): string {
       .join(' ')
   }
   return ''
-}
-
-/**
- * LLM 失败后是否允许用本地回退标题改名：仅限现有标题本就无效的情形
- * （空 / 未命名会话 / 自动注入 prompt 污染）。正常标题一律保留，
- * 否则 fallbackTitle 的 12 码点截断会不可逆地毁掉全库标题。
- */
-export function isFallbackAllowed(title: string | undefined): boolean {
-  const t = (title ?? '').trim()
-  return !t || t === '未命名会话' || isPollutedPrompt(t)
 }
 
 function stamp(now: Date): string {
@@ -225,7 +222,7 @@ export async function runLibraryMaintain(root: string, opts: MaintainOptions = {
       report.alreadyGood += 1
       continue
     }
-    const res = await renameConversation(dir, t)
+    const res = await renameConversation(dir, t, llm ? 'llm' : 'local')
     if (res.ok) report.renamed += 1
     else {
       report.renameFailed += 1

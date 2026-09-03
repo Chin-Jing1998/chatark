@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipc-channels'
-import type { ChatArkApi, ConfirmOptions, ThemeChangedPayload, ThemeMode } from '@shared/api'
+import type {
+  ChatArkApi,
+  ConfirmOptions,
+  RelocateResult,
+  ThemeChangedPayload,
+  ThemeMode
+} from '@shared/api'
 import type {
   BackfillProgress,
   ConversationRecord,
@@ -46,7 +52,9 @@ const api: ChatArkApi = {
     setOrg: (id: string, partial: Partial<OrgMeta>): Promise<OpResult<ConversationSummary>> =>
       ipcRenderer.invoke(IPC.convSetOrg, id, partial),
     reveal: (id: string): Promise<OpResult> => ipcRenderer.invoke(IPC.convReveal, id),
-    openExternal: (id: string): Promise<OpResult> => ipcRenderer.invoke(IPC.convOpenExternal, id)
+    openExternal: (id: string): Promise<OpResult> => ipcRenderer.invoke(IPC.convOpenExternal, id),
+    relocateUncategorized: (): Promise<OpResult<RelocateResult>> =>
+      ipcRenderer.invoke(IPC.convRelocateUncategorized)
   },
 
   file: {

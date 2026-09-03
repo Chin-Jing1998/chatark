@@ -1,18 +1,19 @@
-import { app } from 'electron'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { DEFAULT_LIBRARY_REL } from '@shared/constants'
+import { resolveUserDataDir } from '../app-paths'
 
 interface AppConfig {
   historyRoot?: string
 }
 
 function configPath(): string {
-  return join(app.getPath('userData'), 'config.json')
+  return join(resolveUserDataDir(), 'config.json')
 }
 
 function defaultLibraryRoot(): string {
-  return join(app.getPath('home'), ...DEFAULT_LIBRARY_REL)
+  return join(homedir(), ...DEFAULT_LIBRARY_REL)
 }
 
 function readConfig(): AppConfig {
@@ -26,7 +27,7 @@ function readConfig(): AppConfig {
 }
 
 function writeConfig(cfg: AppConfig): void {
-  const dir = app.getPath('userData')
+  const dir = resolveUserDataDir()
   mkdirSync(dir, { recursive: true })
   writeFileSync(configPath(), JSON.stringify(cfg, null, 2), 'utf8')
 }

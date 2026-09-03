@@ -13,6 +13,7 @@ function mk(p: Partial<ConversationSummary> & { id: string }): ConversationSumma
     startedAt: p.startedAt ?? '',
     endedAt: p.endedAt ?? '',
     exportedAt: p.exportedAt ?? '',
+    cwd: p.cwd ?? '',
     createdAtMs: p.createdAtMs ?? 0,
     messageCount: p.messageCount ?? 0,
     totalSizeBytes: p.totalSizeBytes ?? 0,

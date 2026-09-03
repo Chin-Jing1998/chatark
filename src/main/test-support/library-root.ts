@@ -2,23 +2,18 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { readdirSync, readFileSync } from 'node:fs'
 import { DEFAULT_LIBRARY_REL } from '@shared/constants'
+import { defaultUserDataDir } from '../services/app-paths'
 
 /**
  * 真实库组测试共用的库根解析。
- * 与应用运行时 settings/store.ts 的 getLibraryRoot 同一语义（配置优先、回退默认），
- * 但测试进程没有 electron app 对象，userData 路径按平台自行拼出。
+ * 与应用运行时 settings/store.ts 的 getLibraryRoot 同一语义（配置优先、回退默认）；
+ * userData 路径取平台默认值，不受测试用 CHATARK_USER_DATA 覆盖影响。
  */
 
 /** 读应用 config.json 里的 historyRoot；不存在或损坏返回 null。 */
 function appConfigHistoryRoot(): string | null {
-  const base =
-    process.platform === 'darwin'
-      ? join(homedir(), 'Library', 'Application Support')
-      : process.platform === 'win32'
-        ? (process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming'))
-        : (process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'))
   try {
-    const raw = readFileSync(join(base, 'chatark', 'config.json'), 'utf8')
+    const raw = readFileSync(join(defaultUserDataDir(), 'config.json'), 'utf8')
     const root = (JSON.parse(raw) as { historyRoot?: unknown }).historyRoot
     return typeof root === 'string' && root.length > 0 ? root : null
   } catch {

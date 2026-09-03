@@ -4,23 +4,17 @@
  * 自 ~/.claude/tools/chat_export（Python）忠实移植：解析 → 构建中间表示 → 分类/起标题 →
  * 渲染 md/html/js → 写 5 件套并原子落盘。供后续 M7.5 集成调用。
  */
-import path from 'node:path'
-
 import type { MetaJson } from '@shared/types'
 
-import * as classifier from './classifier'
 import * as engine from './engine'
 import * as gate from './gate'
 import * as jsonlParser from './jsonl-parser'
-import * as model from './model'
 import * as renderHtmlMod from './render-html'
 import * as renderJsMod from './render-js'
 import * as renderMdMod from './render-md'
-import * as titler from './titler'
-import { fallbackTitle, generateTitle, isPollutedPrompt, sampleEventText, type TitleSource } from './titlegen'
 import * as writer from './writer'
 import type { ParseResult } from './jsonl-parser'
-import { EventType, type BuildOptions, type Conversation, type RawRecord } from './types'
+import { type Conversation } from './types'
 
 // ---- 类型与底层模块再导出，便于集成层按需取用 ----
 export * from './types'
@@ -29,46 +23,18 @@ export { build as buildFromTranscript, textArtifacts } from './engine'
 export { encodeCwd, listSessions, activeSessionIds, quickInfo } from './session-locator'
 export type { SessionEntry, QuickInfo } from './session-locator'
 
+// ---- 导出主流程（先落盘后起名，实现见 export-session.ts）----
+export { buildConversation, exportSession, skipReason } from './export-session'
+export type { BuildConvOptions, ExportArgs, ExportOutcome, LogFields } from './export-session'
+
 /** 解析 JSONL 转录为有效记录与统计。 */
 export function parseJsonl(p: string): Promise<ParseResult> {
   return jsonlParser.readAll(p)
 }
 
-export interface BuildConvOptions extends BuildOptions {
-  stats?: ParseResult['stats']
-}
-
-/** 由记录列表构建完整 Conversation（已应用分类与标题，可直接渲染）。 */
-export function buildConversation(records: RawRecord[], opts: BuildConvOptions = {}): Conversation {
-  const conv = model.buildConversation(records, opts)
-  conv.category = classifier.classify(conv)
-  conv.title = titler.makeTitle(conv)
-  conv.warnings = []
-  const stats = opts.stats ?? { total_lines: records.length, bad_lines: 0, good_lines: records.length }
-  if (stats.bad_lines) conv.warnings.push(`跳过 ${stats.bad_lines} 坏行`)
-  conv.parse_stats = stats
-  return conv
-}
-
 /** gate：是否值得导出（基于已解析记录，逻辑与 Python gate 一致）。 */
 export function shouldExport(parsed: ParseResult): boolean {
   return gate.shouldExport(parsed)
-}
-
-/**
- * gate 之外的入库判定：haiku 主导的一次性会话、以及自动注入 prompt 派生的会话
- * （含本应用 titlegen 起标题派生的 claude 会话——导出它会再派生 claude，无限自激）。
- * 返回跳过原因，null 表示可导出。
- */
-export function skipReason(conv: Conversation): string | null {
-  if (conv.model && conv.model.toLowerCase().includes('haiku')) {
-    return 'haiku 模型主导的查询/摘要会话，跳过导出'
-  }
-  const firstPrompt = conv.events.find((e) => e.etype === EventType.USER_PROMPT)
-  if (firstPrompt && isPollutedPrompt(firstPrompt.text)) {
-    return '自动注入 prompt 派生的会话（如标题生成），跳过导出'
-  }
-  return null
 }
 
 /** 生成 meta.json 规范结构。 */
@@ -99,66 +65,4 @@ export function renderHtml(conv: Conversation, live = false): string {
 /** 计算导出目录名（不落盘）。 */
 export function folderName(conv: Conversation): string {
   return writer.folderName(conv)
-}
-
-export interface ExportArgs {
-  sourceJsonl: string
-  historyRoot: string
-  /** 'existing' = 保持现状（titler 兜底）；'llm' = claude CLI 生成中文主题标题，失败回退现有标题 */
-  titleMode?: 'existing' | 'llm'
-}
-
-export interface ExportOutcome {
-  ok: boolean
-  dir?: string
-  meta?: MetaJson
-  reason?: string
-  /** true = 因 haiku 模型主导被跳过（非错误，headless 退出码应为 0） */
-  skipped?: boolean
-}
-
-/** 高层导出：解析 → gate → build → 分类 → 渲染 → 写 5 件套，原子落盘到
- * `historyRoot/<category>/<folderName>/`；已存在同 sessionId 则覆盖其目录。
- * gate 不通过返回 { ok:false, reason }。
- */
-export async function exportSession(args: ExportArgs): Promise<ExportOutcome> {
-  const { sourceJsonl, historyRoot } = args
-  let parsed: ParseResult
-  try {
-    parsed = await jsonlParser.readAll(sourceJsonl)
-  } catch (err) {
-    return { ok: false, reason: `读取或解析转录失败：${(err as Error).message}` }
-  }
-
-  if (!gate.shouldExport(parsed)) {
-    return { ok: false, reason: '未达导出门槛（助手回合或实质消息不足）' }
-  }
-
-  const conv = buildConversation(parsed.records, { sourcePath: sourceJsonl, stats: parsed.stats })
-
-  const skip = skipReason(conv)
-  if (skip) return { ok: false, reason: skip, skipped: true }
-
-  // LLM 主题标题：claude CLI 生成，失败回退本地规则（去污染标题 → cwd 目录名）
-  if (args.titleMode === 'llm') {
-    const src: TitleSource = {
-      cwd: conv.cwd,
-      text: sampleEventText(conv.events),
-      existingTitle: conv.title
-    }
-    const t = (await generateTitle(src)) ?? fallbackTitle(src)
-    if (t) conv.title = t
-  }
-
-  const arts = engine.textArtifacts(conv, false)
-  const category = conv.category || '其他'
-  const existing = await writer.findExisting(historyRoot, conv.session_id)
-  const targetDir = existing ?? path.join(historyRoot, category, writer.folderName(conv))
-
-  try {
-    const res = writer.writeExport(conv, arts, targetDir, sourceJsonl, false)
-    return { ok: true, dir: res.dir, meta: res.meta }
-  } catch (err) {
-    return { ok: false, reason: `落盘失败：${(err as Error).message}` }
-  }
 }

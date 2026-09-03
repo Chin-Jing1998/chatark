@@ -59,7 +59,7 @@ describe('管理动作 FS 服务', () => {
     await expect(fs.access(dir)).resolves.toBeUndefined()
   })
 
-  it('renameConversation 改 meta.title 与目录名标题段，保留 ts/hash', async () => {
+  it('renameConversation 改 meta.title 与目录名标题段，保留 ts/hash，来源默认 user', async () => {
     const dir = await makeConv('其他')
     const r = await renameConversation(dir, '全新标题')
     expect(r.ok).toBe(true)
@@ -67,9 +67,14 @@ describe('管理动作 FS 服务', () => {
       expect(r.data.newPath).toBe(join(root, '其他', '20260101_120000_全新标题_abcd1234'))
       const meta = JSON.parse(await fs.readFile(join(r.data.newPath, 'meta.json'), 'utf8'))
       expect(meta.title).toBe('全新标题')
+      // 缺省即用户手改：重导出据此沿用标题，不再被自动命名覆盖
+      expect(meta.titleSource).toBe('user')
       // html 快照不被改写
       const html = await fs.readFile(join(r.data.newPath, '对话.html'), 'utf8')
       expect(html).toContain('data-theme="auto"')
+      // 原子写的临时文件已 rename 掉，且命名带 pid（并发改名不互相覆盖）
+      const names = await fs.readdir(r.data.newPath)
+      expect(names.filter((n) => n.endsWith('.tmp'))).toEqual([])
     }
   })
 
