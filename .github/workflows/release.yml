@@ -1,6 +1,7 @@
-name: 构建三平台安装包
+name: 构建安装包
 
 # 触发：手动运行，或推送 v* tag 时自动出 Release
+# 平台：macOS 与 Windows（各含 x64 与 arm64）；Linux 产物需自行 npm run dist:linux
 on:
   workflow_dispatch:
   push:

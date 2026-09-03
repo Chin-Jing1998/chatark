@@ -14,7 +14,7 @@ Claude Code 历史对话管理平台（Electron 桌面应用）。直观浏览�
 
 ## 下载
 
-预构建包见 [Releases](https://github.com/Chin-Jing1998/chatark/releases/latest)，三平台齐全。
+预构建包见 [Releases](https://github.com/Chin-Jing1998/chatark/releases/latest)，含 macOS 与 Windows。
 
 **Windows**
 
@@ -34,16 +34,11 @@ Claude Code 历史对话管理平台（Electron 桌面应用）。直观浏览�
 
 **Linux**
 
-| 文件 | 适用 |
-|---|---|
-| `ChatArk-<版本>-x86_64.AppImage` | x86_64，`chmod +x` 后双击即用 |
-| `ChatArk-<版本>-arm64.AppImage` | ARM64，同上 |
-| `ChatArk-<版本>-amd64.deb` | Debian / Ubuntu 系，x86_64 |
-| `ChatArk-<版本>-arm64.deb` | Debian / Ubuntu 系，ARM64 |
+自 v0.3.0 起不再提供预构建包。克隆仓库后执行 `npm ci && npm run dist:linux` 可自行产出 AppImage 与 deb（打包配置已就绪，无原生模块）。
 
 均未做代码签名：Windows 的 SmartScreen 会提示「未知发布者」，点击「更多信息 → 仍要运行」；macOS 首次打开需右键点图标选「打开」以绕过 Gatekeeper。
 
-所有产物均由 [GitHub Actions](.github/workflows/release.yml) 在三平台并行构建，推 `v*` tag 即自动发布。
+预构建产物由 [GitHub Actions](.github/workflows/release.yml) 在 macOS 与 Windows 两个 runner 上并行构建（各含 x64 与 arm64），推 `v*` tag 即自动发布。
 
 应用完全离线：不联网、不上传任何数据、无遥测与自动更新。
 
