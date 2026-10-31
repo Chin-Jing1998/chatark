@@ -7,20 +7,29 @@
 import { createReadStream } from 'node:fs'
 import { createInterface } from 'node:readline'
 
+import { isCodexTranscript, normalizeCodexRecords } from './codex'
 import type { ParseStats, RawRecord } from './types'
 
 export interface ParseResult {
   records: RawRecord[]
   stats: ParseStats
+  sourceClient?: 'claude' | 'codex'
 }
 
 /** 把整段文本按行解析为有效记录列表（含坏行统计）。 */
-export function parseText(text: string): ParseResult {
+export function parseText(text: string, sourcePath?: string): ParseResult {
   const records: RawRecord[] = []
   const counts = { total: 0, bad: 0 }
   // 通用换行切分（\r\n / \r / \n），对齐 Python 文件迭代的 universal newlines
   for (const rawLine of text.split(/\r\n|\r|\n/)) feedLine(rawLine, records, counts)
-  return { records, stats: { total_lines: counts.total, bad_lines: counts.bad, good_lines: records.length } }
+  const goodLines = records.length
+  const isCodex = isCodexTranscript(records)
+  const finalRecords = isCodex ? normalizeCodexRecords(records, { sourcePath }) : records
+  return {
+    records: finalRecords,
+    stats: { total_lines: counts.total, bad_lines: counts.bad, good_lines: goodLines },
+    sourceClient: isCodex ? 'codex' : 'claude'
+  }
 }
 
 /**
@@ -64,5 +73,12 @@ export async function readAll(path: string): Promise<ParseResult> {
     rl.close()
     stream.destroy()
   }
-  return { records, stats: { total_lines: counts.total, bad_lines: counts.bad, good_lines: records.length } }
+  const goodLines = records.length
+  const isCodex = isCodexTranscript(records)
+  const finalRecords = isCodex ? normalizeCodexRecords(records, { sourcePath: path }) : records
+  return {
+    records: finalRecords,
+    stats: { total_lines: counts.total, bad_lines: counts.bad, good_lines: goodLines },
+    sourceClient: isCodex ? 'codex' : 'claude'
+  }
 }

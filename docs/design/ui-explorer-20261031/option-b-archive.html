@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Chin_Jing1998">
+<meta name="revised" content="2026-10-31">
+<title>方案 B：高密度档案检索台（Precision Editorial Archive）</title>
+<style>
+  :root {
+    --paper: #f8f7f4;
+    --paper-alt: #f0eee9;
+    --paper-card: #ffffff;
+    --ink: #18181b;
+    --ink-muted: #52525b;
+    --ink-faint: #71717a;
+    --rule: #dcd8ce;
+    --rule-strong: #beb8a8;
+    --accent: #8c3b08;
+    --accent-soft: #fef3c7;
+    --code-bg: #f3f1ec;
+    --ok: #065f46;
+    --mono: "JetBrains Mono", "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Inter", "PingFang SC", -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif;
+  }
+  html.dark {
+    --paper: #0c0d10;
+    --paper-alt: #13151a;
+    --paper-card: #181b22;
+    --ink: #e4e4e7;
+    --ink-muted: #a1a1aa;
+    --ink-faint: #71717a;
+    --rule: #262934;
+    --rule-strong: #3a3f4d;
+    --accent: #38bdf8;
+    --accent-soft: rgba(56, 189, 248, 0.15);
+    --code-bg: #090a0d;
+    --ok: #34d399;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
+  .archive-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+  }
+  /* 协调重构后的 40px 顶部状态栏：严格与下方 284px 侧栏 + 主舞台分栏网格对齐 */
+  .unified-band {
+    height: 40px;
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: 284px minmax(0, 1fr);
+    background: var(--paper-alt);
+    border-bottom: 1px solid var(--rule);
+  }
+  .band-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    border-right: 1px solid var(--rule);
+  }
+  .traffic {
+    display: flex;
+    gap: 7px;
+    flex-shrink: 0;
+  }
+  .traffic i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+  .traffic .r { background: #ff5f57; }
+  .traffic .y { background: #febc2e; }
+  .traffic .g { background: #28c840; }
+  .brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .brand-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .band-left-tools {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .mini-tool {
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-muted);
+    font-size: 13px;
+  }
+  .mini-tool:hover {
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .band-right {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 12px;
+    min-width: 0;
+  }
+  .band-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+  }
+  .arch-tab {
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    color: var(--ink-muted);
+    white-space: nowrap;
+    transition: background 0.14s ease, border-color 0.14s ease;
+  }
+  .arch-tab:hover {
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .arch-tab.active {
+    background: var(--paper-card);
+    border-color: var(--rule-strong);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+  .arch-tab .mono-id {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .arch-tab .tab-close {
+    font-size: 13px;
+    color: var(--ink-muted);
+    padding: 0 2px;
+  }
+  /* 右侧一体化工具簇：等高 28px 分段控件，消除零散按钮割裂感 */
+  .status-cluster {
+    display: inline-flex;
+    align-items: center;
+    height: 28px;
+    border: 1px solid var(--rule-strong);
+    border-radius: 6px;
+    background: var(--paper-card);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .cluster-btn {
+    height: 100%;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    border-right: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  .cluster-btn:last-child {
+    border-right: 0;
+  }
+  .cluster-btn:hover {
+    background: var(--paper-alt);
+    color: var(--ink);
+  }
+  .cluster-btn kbd {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* 下部主体：紧凑双行索引侧栏 + 全幅编年体阅读舞台 */
+  .archive-main {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 284px minmax(0, 1fr);
+  }
+  .index-sidebar {
+    background: var(--paper-alt);
+    border-right: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  /* 五视图切换收归侧栏顶部，与侧栏内容宽度完全对齐 */
+  .sidebar-views {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper-alt);
+  }
+  .view-btn {
+    height: 26px;
+    border-radius: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    text-align: center;
+  }
+  .view-btn:hover {
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .view-btn.active {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .mono-num {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .index-scroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .sec-header {
+    padding: 7px 12px 5px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-muted);
+    background: var(--paper-alt);
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+  }
+  .idx-item {
+    width: 100%;
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: transparent;
+  }
+  .idx-item:hover {
+    background: var(--paper);
+  }
+  .idx-item.active {
+    background: var(--paper-card);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .idx-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .idx-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .badge-mono {
+    padding: 0 5px;
+    border-radius: 3px;
+    border: 1px solid var(--rule-strong);
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* 阅读舞台：左轴时间编年体 + 右侧规格网格栏 */
+  .editorial-stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 264px;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+  }
+  .chronicle-feed {
+    overflow-y: auto;
+    padding: 16px 26px 76px;
+  }
+  /* 精简后的档案元信息横条：不与顶栏标签重复大标题，保持视觉呼吸感 */
+  .doc-meta-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    margin-bottom: 14px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--paper-alt);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+  .doc-meta-strip strong {
+    color: var(--ink);
+    font-family: var(--sans);
+    font-weight: 600;
+  }
+  /* 左栏时间/角色锚点 + 右栏宽幅正文 */
+  .entry-row {
+    display: grid;
+    grid-template-columns: 124px minmax(0, 1fr);
+    gap: 18px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .entry-gutter {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.45;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .entry-seq {
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .entry-role {
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .entry-ts {
+    color: var(--ink-muted);
+    font-size: 11px;
+  }
+  .entry-content {
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.68;
+  }
+  .entry-content p {
+    margin: 0 0 8px;
+  }
+  /* 紧凑终端单行折叠工具条 */
+  .term-strip {
+    margin: 6px 0 10px;
+    border: 1px solid var(--rule-strong);
+    border-radius: 6px;
+    background: var(--paper-alt);
+    overflow: hidden;
+  }
+  .term-strip summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 7px 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .term-strip summary::-webkit-details-marker { display: none; }
+  .term-cmd {
+    white-space: nowrap;
+    flex-shrink: 0;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .term-stat {
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: auto;
+    color: var(--ok);
+    font-weight: 600;
+  }
+  .arch-code {
+    margin: 0;
+    padding: 10px 12px;
+    background: var(--code-bg);
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre-wrap;
+  }
+
+  /* 右侧档案规格网格与编年索引 */
+  .spec-aside {
+    background: var(--paper-alt);
+    border-left: 1px solid var(--rule);
+    padding: 14px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .spec-block h3 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-muted);
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .spec-grid {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    row-gap: 6px;
+    column-gap: 8px;
+    font-size: 12.5px;
+  }
+  .spec-grid dt {
+    color: var(--ink-muted);
+  }
+  .spec-grid dd {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: right;
+    word-break: break-all;
+  }
+  .toc-mono {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .toc-mono a {
+    display: flex;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--ink);
+    font-size: 12.5px;
+  }
+  .toc-mono a.active {
+    background: var(--accent-soft);
+    font-weight: 600;
+  }
+  .toc-mono .n {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* 状态 2：档案检索台空状态 */
+  .archive-empty {
+    grid-column: 1 / -1;
+    display: none;
+    flex-direction: column;
+    padding: 28px 36px 76px;
+    overflow-y: auto;
+    gap: 18px;
+  }
+  .ledger-head {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .ledger-head h2 { margin: 0; font-size: 19px; }
+  .ledger-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .ledger-table th, .ledger-table td {
+    border-bottom: 1px solid var(--rule);
+    padding: 10px 8px;
+    text-align: left;
+  }
+  .ledger-table th {
+    font-size: 12px;
+    color: var(--ink-muted);
+    font-weight: 600;
+  }
+  .ledger-table tr:hover td {
+    background: var(--paper-alt);
+    cursor: pointer;
+  }
+
+  /* 状态 3：命令面板与分区设置浮层 */
+  .archive-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(12, 13, 16, 0.48);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 45;
+  }
+  .arch-dialog {
+    border-radius: 14px;
+    overflow: hidden;
+    width: 780px;
+    height: 500px;
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+  .arch-dialog-nav {
+    background: var(--paper-alt);
+    border-right: 1px solid var(--rule);
+    padding: 16px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .arch-dialog-nav button {
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+  .arch-dialog-nav button.active {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .arch-dialog-body {
+    padding: 20px 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .opt-btn {
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 6px;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper-card);
+    font-size: 13px;
+    text-align: left;
+  }
+  .opt-btn:hover {
+    background: var(--paper-alt);
+  }
+
+  /* 底部切换栏 */
+  .explorer-bar {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #18181b;
+    color: #f4f4f5;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.32);
+    font-size: 13px;
+  }
+  .explorer-bar .badge {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: #9a3412;
+    color: #ffffff;
+    font-weight: 700;
+  }
+  .explorer-bar button {
+    padding: 4px 10px;
+    border-radius: 999px;
+    color: #d4d4d8;
+    font-size: 13px;
+  }
+  .explorer-bar button.active {
+    background: #fef3c7;
+    color: #18181b;
+    font-weight: 700;
+  }
+
+  body[data-state="empty"] .chronicle-feed,
+  body[data-state="empty"] .spec-aside { display: none; }
+  body[data-state="empty"] .archive-empty { display: flex; }
+  body[data-state="overlay"] .archive-overlay { display: flex; }
+
+  /* Apple macOS 窗口四角同心圆角（Continuous Squircle 18px + 1px 内高光描边） */
+  html, body {
+    padding: 8px !important;
+    background: #d8dce6 !important;
+  }
+  html.dark, html.dark body {
+    background: #07090e !important;
+  }
+  .shell, .workbench, .archive-shell, .ambient-canvas {
+    width: calc(100vw - 16px) !important;
+    height: calc(100vh - 16px) !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+    box-shadow:
+      0 18px 48px rgba(15, 23, 42, 0.18),
+      0 0 0 1px rgba(15, 23, 42, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
+  }
+  html.dark .shell, html.dark .workbench, html.dark .archive-shell, html.dark .ambient-canvas {
+    box-shadow:
+      0 22px 56px rgba(0, 0, 0, 0.65),
+      0 0 0 1px rgba(255, 255, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  }
+
+</style>
+</head>
+<body data-state="reading">
+<div class="archive-shell">
+  <!-- 协调后的 40px 顶部状态栏：左栏 284px 对齐索引侧栏，右栏承载等高胶囊标签与一体化工具簇 -->
+  <header class="unified-band">
+    <div class="band-left">
+      <div class="traffic"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+      <div class="brand-lockup">
+        <span>ChatArk</span>
+        <span class="brand-count">1,248</span>
+      </div>
+      <div class="band-left-tools">
+        <button class="mini-tool" title="折叠全部分类">⇅</button>
+        <button class="mini-tool" title="切换排序">↓↑</button>
+        <button class="mini-tool" title="重新扫描归档库">↻</button>
+      </div>
+    </div>
+
+    <div class="band-right">
+      <div class="band-tabs" role="tablist" aria-label="打开的会话标签">
+        <button class="arch-tab active" role="tab" onclick="setState('reading')">
+          <span class="mono-id">01</span>
+          <span>convo:// 协议注入与主题同步</span>
+          <span class="tab-close" onclick="event.stopPropagation();setState('empty')" title="关闭标签">×</span>
+        </button>
+        <button class="arch-tab" role="tab" onclick="setState('reading')">
+          <span class="mono-id">02</span>
+          <span>SQLite FTS5 中文分词检索调优</span>
+          <span class="tab-close">×</span>
+        </button>
+        <button class="arch-tab" role="tab" onclick="setState('reading')">
+          <span class="mono-id">FILE</span>
+          <span>services/theme.ts</span>
+          <span class="tab-close">×</span>
+        </button>
+      </div>
+
+      <div class="status-cluster" role="toolbar" aria-label="全局检索与工作台控制">
+        <button class="cluster-btn" onclick="setState('empty')">
+          <span>全局检索</span>
+          <kbd>⌘K</kbd>
+        </button>
+        <button class="cluster-btn" onclick="toggleDark()">亮/暗</button>
+        <button class="cluster-btn" onclick="setState('overlay')">设置</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="archive-main">
+    <!-- 紧凑双行等宽索引侧栏（顶部内嵌对齐的五视图分段栏） -->
+    <aside class="index-sidebar" aria-label="档案索引侧栏">
+      <nav class="sidebar-views" aria-label="五视图切换">
+        <button class="view-btn active" onclick="setState('reading')">浏览</button>
+        <button class="view-btn" onclick="setState('empty')">搜索</button>
+        <button class="view-btn" onclick="setState('reading')">收藏</button>
+        <button class="view-btn" onclick="setState('reading')">标签</button>
+        <button class="view-btn" onclick="setState('reading')">项目</button>
+      </nav>
+      <div class="index-scroll">
+        <div class="sec-header"><span>01 / 架构与协议</span><span class="mono-num">04</span></div>
+        <button class="idx-item active" onclick="setState('reading')">
+          <div class="idx-title">convo:// 协议注入与主题同步</div>
+          <div class="idx-meta">
+            <span class="badge-mono">OPUS</span>
+            <span>10-31 14:20</span>
+            <span>· 42条</span>
+            <span style="margin-left:auto">置顶 · 星标</span>
+          </div>
+        </button>
+        <button class="idx-item" onclick="setState('reading')">
+          <div class="idx-title">拖拽分隔条跨 iframe 指针穿透修复</div>
+          <div class="idx-meta">
+            <span class="badge-mono">SONNET</span>
+            <span>10-29 18:05</span>
+            <span>· 31条</span>
+            <span style="margin-left:auto">chatark</span>
+          </div>
+        </button>
+        <button class="idx-item" onclick="setState('reading')">
+          <div class="idx-title">导出快照 CSP 与离线自包含校验</div>
+          <div class="idx-meta">
+            <span class="badge-mono">HAIKU</span>
+            <span>10-27 11:42</span>
+            <span>· 15条</span>
+            <span style="margin-left:auto">sec</span>
+          </div>
+        </button>
+
+        <div class="sec-header"><span>02 / 检索与存储</span><span class="mono-num">03</span></div>
+        <button class="idx-item" onclick="setState('reading')">
+          <div class="idx-title">SQLite FTS5 中文分词检索调优</div>
+          <div class="idx-meta">
+            <span class="badge-mono">SONNET</span>
+            <span>10-30 16:12</span>
+            <span>· 28条</span>
+            <span style="margin-left:auto">星标</span>
+          </div>
+        </button>
+        <button class="idx-item" onclick="setState('reading')">
+          <div class="idx-title">Claude Stop Hook 增量归档脚本</div>
+          <div class="idx-meta">
+            <span class="badge-mono">OPUS</span>
+            <span>10-28 09:30</span>
+            <span>· 19条</span>
+            <span style="margin-left:auto">hooks</span>
+          </div>
+        </button>
+      </div>
+    </aside>
+
+    <!-- 右侧主舞台 -->
+    <main class="editorial-stage">
+      <!-- 状态 1：档案编年体阅读页 -->
+      <div class="chronicle-feed">
+        <div class="doc-meta-strip">
+          <span><strong>当前会话：</strong>/Users/chin.jing1998/编程项目工作站/chatark</span>
+          <span>claude-opus-4-7 · 42 条消息 (16 工具)</span>
+        </div>
+
+        <article class="entry-row" id="b-m1">
+          <div class="entry-gutter">
+            <span class="entry-seq">#01 · 提问</span>
+            <span class="entry-role">用户提问</span>
+            <span class="entry-ts">14:20:08</span>
+          </div>
+          <div class="entry-content">
+            <p>请检查现行 <code>TopBand</code>（40px）与 <code>Stage</code> 标签条（40px）分占两行导致垂直空间浪费的问题，并让存量库既有的 <code>对话.html</code> 在切换 6 套主题预设时同步更新背景与代码块配色。</p>
+          </div>
+        </article>
+
+        <article class="entry-row" id="b-m2">
+          <div class="entry-gutter">
+            <span class="entry-seq">#02 · 回答</span>
+            <span class="entry-role">Claude Opus</span>
+            <span class="entry-ts">14:21:19</span>
+          </div>
+          <div class="entry-content">
+            <details class="term-strip" open>
+              <summary>
+                <span class="term-cmd">$ read + edit</span>
+                <span>src/main/services/theme.ts (L1–L84) · src/renderer/src/app/Layout.tsx</span>
+                <span class="term-stat">完成 · 24ms</span>
+              </summary>
+              <pre class="arch-code">export function buildInjectedCss(): string {
+  const fallbackBg = nativeTheme.shouldUseDarkColors ? '#0c0d10' : '#f8f7f4'
+  return EMBED_FIX_CSS + `html,body{background:var(--bg,${fallbackBg})}` + currentThemeTokensCss()
+}</pre>
+            </details>
+            <p>已将顶部状态栏按 <code>284px</code> 侧栏分界线对齐重构：左区承载红绿灯、库计数与树工具，五视图切换内嵌至侧栏头部，右区等高排布圆角档案标签与一体化检索控制簇；同时在主进程 <code>convo://</code> 协议响应前注入高优先级 <code>html[data-theme]</code> 令牌覆盖与 <code>EMBED_FIX_CSS</code>。</p>
+          </div>
+        </article>
+      </div>
+
+      <aside class="spec-aside" aria-label="档案规格与提问索引">
+        <div class="spec-block">
+          <h3>会话档案规格</h3>
+          <dl class="spec-grid">
+            <dt>档案编号</dt><dd>20261031-01</dd>
+            <dt>所属分类</dt><dd>架构与协议</dd>
+            <dt>模型标识</dt><dd>opus-4-7</dd>
+            <dt>消息计数</dt><dd>42 条 (16 工具)</dd>
+            <dt>校验状态</dt><dd style="color:var(--ok)">已核验</dd>
+          </dl>
+        </div>
+        <div class="spec-block">
+          <h3>编年提问索引</h3>
+          <nav class="toc-mono">
+            <a class="active" href="#b-m1"><span class="n">01</span>单行对齐顶栏与标签带</a>
+            <a href="#b-m2"><span class="n">02</span>convo:// 动态注入令牌</a>
+            <a href="#b-m2"><span class="n">03</span>窄屏三栏网格保留规则</a>
+            <a href="#b-m2"><span class="n">04</span>Vitest golden 快照验证</a>
+          </nav>
+        </div>
+      </aside>
+
+      <!-- 状态 2：高密度检索台账空状态 -->
+      <div class="archive-empty">
+        <div class="ledger-head">
+          <h2>ChatArk 本地会话检索台账（1,248 条归档 · 3 条待补录）</h2>
+          <span class="mono-num">FTS5 索引就绪 · ⌘K 快速过滤</span>
+        </div>
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th>编号</th>
+              <th>对话标题</th>
+              <th>分类 / 项目</th>
+              <th>模型</th>
+              <th>消息数</th>
+              <th>最后活跃</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr onclick="setState('reading')">
+              <td class="mono-num">ARC-01</td>
+              <td><strong>convo:// 协议注入与主题同步</strong></td>
+              <td>架构与协议 · chatark</td>
+              <td class="mono-num">OPUS 4.7</td>
+              <td class="mono-num">42</td>
+              <td class="mono-num">2026-10-31 14:20</td>
+            </tr>
+            <tr onclick="setState('reading')">
+              <td class="mono-num">ARC-02</td>
+              <td><strong>SQLite FTS5 中文分词检索调优</strong></td>
+              <td>检索与存储 · chatark</td>
+              <td class="mono-num">SONNET 4.6</td>
+              <td class="mono-num">28</td>
+              <td class="mono-num">2026-10-30 16:12</td>
+            </tr>
+            <tr onclick="setState('reading')">
+              <td class="mono-num">ARC-03</td>
+              <td><strong>Claude Stop Hook 增量归档脚本</strong></td>
+              <td>自动化与安全 · hooks</td>
+              <td class="mono-num">OPUS 4.7</td>
+              <td class="mono-num">19</td>
+              <td class="mono-num">2026-10-28 09:30</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 状态 3：分区设置弹窗 -->
+      <div class="archive-overlay" onclick="if(event.target===this)setState('reading')">
+        <div class="arch-dialog">
+          <nav class="arch-dialog-nav">
+            <button class="active">01 布局方案与色板</button>
+            <button>02 档案库路径</button>
+            <button>03 增量补录 (3)</button>
+            <button>04 Stop Hook</button>
+            <button style="margin-top:auto" onclick="setState('reading')">← 关闭设置</button>
+          </nav>
+          <div class="arch-dialog-body">
+            <h3 style="margin:0;font-size:16px">三套界面骨架方案（A / B / C）与 6 套阅读器色板</h3>
+            <p style="margin:0;font-size:13px;color:var(--ink-muted)">支持在设置或顶栏随时切换 M3E 容器、高密度档案检索台、精致液态玻璃三套布局。</p>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <button class="opt-btn" onclick="setDark(false)">暖白档案纸 (Light)</button>
+              <button class="opt-btn" onclick="setDark(true)">石墨暗夜 (Dark)</button>
+              <button class="opt-btn">Solarized 暖阳</button>
+              <button class="opt-btn">Nord 极地</button>
+              <button class="opt-btn">Dracula 暗夜</button>
+              <button class="opt-btn">Forest 秘林</button>
+            </div>
+            <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;align-items:center">
+              <span class="mono-num" style="font-size:12px;color:var(--ink-muted)">PATH: ~/编程项目工作站/Claude对话归档库</span>
+              <button class="opt-btn" onclick="setState('reading')">保存并返回</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="mixB" hidden style="position:fixed;bottom:58px;left:50%;transform:translateX(-50%);z-index:75;background:var(--paper-card);border:1px solid var(--ink);padding:12px 16px;font-size:13px;box-shadow:0 14px 32px rgba(0,0,0,0.28)"><strong>A/B/C 三套全保留：</strong>已在应用内支持一键切换方案 A（M3E 容器）、方案 B（档案检索台）与方案 C（液态玻璃）</div>
+<div class="explorer-bar" role="toolbar" aria-label="方案 B 状态切换">
+  <span class="badge">方案 B · 档案检索台</span>
+  <button id="btn-reading" class="active" onclick="setState('reading')">阅读对话详情</button>
+  <button id="btn-empty" onclick="setState('empty')">主舞台空状态</button>
+  <button id="btn-overlay" onclick="setState('overlay')">设置与色板</button>
+  <button id="btn-dark" onclick="toggleDark()">切换暗色</button>
+  <button onclick="document.getElementById('mixB').toggleAttribute('hidden')">模块混搭</button>
+</div>
+
+<script>
+  function setState(s) {
+    document.body.setAttribute('data-state', s);
+    ['reading', 'empty', 'overlay'].forEach(function(k) {
+      var el = document.getElementById('btn-' + k);
+      if (el) el.classList.toggle('active', k === s);
+    });
+  }
+  function setDark(d) {
+    document.documentElement.classList.toggle('dark', d);
+    var b = document.getElementById('btn-dark');
+    if (b) b.textContent = d ? '切换亮色' : '切换暗色';
+  }
+  function toggleDark() {
+    setDark(!document.documentElement.classList.contains('dark'));
+  }
+  (function initFromQuery() {
+    var p = new URLSearchParams(location.search);
+    var st = p.get('state');
+    if (st === 'empty' || st === 'overlay' || st === 'reading') setState(st);
+    if (p.get('theme') === 'dark') setDark(true);
+  })();
+</script>
+</body>
+</html>

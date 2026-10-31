@@ -13,6 +13,12 @@ const HOME = os.homedir()
 export const PROJECTS_ROOT = path.join(HOME, '.claude', 'projects')
 // 活跃会话元数据目录
 export const SESSIONS_ROOT = path.join(HOME, '.claude', 'sessions')
+// Codex 转录根目录（按年/月/日分层的活跃与近期会话）
+export const CODEX_SESSIONS_ROOT = path.join(HOME, '.codex', 'sessions')
+// Codex 归档会话目录
+export const CODEX_ARCHIVED_ROOT = path.join(HOME, '.codex', 'archived_sessions')
+// Codex 会话标题索引文件
+export const CODEX_SESSION_INDEX = path.join(HOME, '.codex', 'session_index.jsonl')
 
 // 这些工具的"返回"实为 Claude 撰写的 Markdown 内容（计划/子代理报告/技能正文），
 // 应按 Markdown 渲染而非原始代码块

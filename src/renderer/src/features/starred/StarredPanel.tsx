@@ -31,11 +31,15 @@ export default function StarredPanel(): JSX.Element {
     state.tabs.some((t) => t.id === s.id) ? activate(s.id) : openConversation(s.id, s.title)
 
   const empty = sections.every((s) => s.items.length === 0)
+  const totalStarred = sections.reduce((acc, s) => acc + s.items.length, 0)
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-2 pb-1 pt-0.5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        收藏 / 置顶
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-border/40 px-2.5">
+        <span className="truncate text-[12px] font-semibold tracking-tight text-foreground/85">
+          收藏与置顶
+        </span>
+        <span className="text-[11px] tabular-nums text-muted-foreground">{totalStarred}</span>
       </div>
 
       <ScrollArea className="flex-1">

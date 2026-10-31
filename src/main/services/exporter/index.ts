@@ -22,6 +22,13 @@ export type { ParseResult } from './jsonl-parser'
 export { build as buildFromTranscript, textArtifacts } from './engine'
 export { encodeCwd, listSessions, activeSessionIds, quickInfo } from './session-locator'
 export type { SessionEntry, QuickInfo } from './session-locator'
+export {
+  extractCodexSessionIdFromFilename,
+  isCodexTranscript,
+  lookupCodexThreadTitle,
+  normalizeCodexRecords,
+  stripCodexInjectedText
+} from './codex'
 
 // ---- 导出主流程（先落盘后起名，实现见 export-session.ts）----
 export { buildConversation, exportSession, skipReason } from './export-session'

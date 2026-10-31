@@ -46,8 +46,13 @@ export default function TagsPanel(): JSX.Element {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-2 pb-1 pt-0.5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        标签 / 分类
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-border/40 px-2.5">
+        <span className="truncate text-[12px] font-semibold tracking-tight text-foreground/85">
+          标签与分类
+        </span>
+        <span className="text-[11px] tabular-nums text-muted-foreground">
+          {ordered.length} 分类 · {tagCounts.length} 标签
+        </span>
       </div>
 
       <ScrollArea className="flex-1">

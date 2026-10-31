@@ -48,6 +48,12 @@ export function currentThemeTokensCss(): string {
 const EMBED_FIX_CSS =
   // 目录·提问栏与右栏顶部对齐（模板 embed 仅调了 aside.right）
   'html.embed aside.left{top:12px;max-height:calc(100vh - 24px)}' +
+  // 使存量库既有 对话.html 同步响应 A(M3E)/B(档案)/C(液态玻璃) 三套方案的容器圆角、底色与阴影变量
+  'html.embed aside{border-radius:var(--aside-radius,14px)!important;box-shadow:var(--msg-shadow,var(--shadow))}' +
+  'html.embed .msg{border-radius:var(--msg-radius,14px)!important;border-left-width:var(--msg-left-w,3px)!important;padding:var(--msg-pad,13px 16px)!important;box-shadow:var(--msg-shadow,var(--shadow))!important}' +
+  'html.embed .msg.user_prompt{background:var(--user-card,var(--card))!important}' +
+  'html.embed .msg.tool_call,html.embed .msg.tool_result{background:var(--tool-card,var(--card))!important}' +
+  'html.embed pre.code,html.embed .prose pre code{border-radius:var(--code-radius,10px)!important}' +
   // 进度条过渡去抖，消除目录跳转时“顶部错位/慢恢复”的视觉
   'html.embed .prog-bar>i{transition:none!important}' +
   // 隐藏“实时”切换按钮：静态导出快照无需轮询/倒序，避免误触触发整页自动位移

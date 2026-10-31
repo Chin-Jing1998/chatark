@@ -47,11 +47,19 @@ export default function AutoExportPanel(): JSX.Element {
         <div className="pr-4">
           <div className="text-sm font-medium">会话结束自动导出</div>
           <div className="mt-0.5 text-xs text-muted-foreground">
-            开启后，在 Claude Code 里结束的新会话会自动导出入库。
+            开启后，在 Claude Code 与 Codex 里结束的新会话会自动导出入库。
           </div>
         </div>
         <Switch checked={hook?.installed ?? false} disabled={!hook || busy} onCheckedChange={() => void toggle()} />
       </div>
+      {hook?.codexInstalled !== undefined && (
+        <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs">
+          <span className="text-muted-foreground">Codex SessionEnd 自动导出钩子（~/.codex/config.toml）</span>
+          <span className={hook.codexInstalled ? 'font-medium text-emerald-500' : 'text-muted-foreground'}>
+            {hook.codexInstalled ? '已启用' : '未配置'}
+          </span>
+        </div>
+      )}
       {hook?.needsUpdate && (
         <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5">
           <div className="text-xs text-muted-foreground">

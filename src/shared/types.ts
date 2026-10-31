@@ -47,6 +47,7 @@ export interface MetaJson {
   warnings?: string[]
   parseStats?: { total_lines: number; bad_lines: number; good_lines: number }
   light?: boolean
+  sourceClient?: 'claude' | 'codex'
 }
 
 /** 完整性诊断 */
@@ -203,6 +204,8 @@ export interface UnexportedSession {
   /** 主导模型（quickInfo 众数），haiku 主导会话已过滤不展示 */
   model?: string
   mtimeMs: number
+  /** 会话来源客户端（claude | codex） */
+  source?: 'claude' | 'codex'
 }
 
 /** 补导出结果 */
@@ -230,6 +233,8 @@ export interface HookStatus {
   logPath: string
   /** 该日志文件当前是否存在（不存在时「打开日志」不可用） */
   logExists: boolean
+  /** Codex (~/.codex/config.toml) 是否已配置 SessionEnd 自动导出钩子 */
+  codexInstalled?: boolean
 }
 
 /** 补录进度 */

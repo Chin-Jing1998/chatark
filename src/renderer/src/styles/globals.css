@@ -32,7 +32,10 @@
   --border: 0 0% 89%;
   --input: 0 0% 89%;
   --ring: 254 82% 60%;
-  --radius: 0.5rem;
+  --radius: 0.625rem;
+  /* Apple macOS 窗口四角连续圆角与内嵌同心圆角（R_inner = R_outer - padding） */
+  --window-radius: 16px;
+  --panel-concentric-radius: 12px;
 
   /* Obsidian 特有表面 */
   --sidebar: 0 0% 96.9%;
@@ -112,6 +115,8 @@
   --ease-glass: cubic-bezier(0.32, 0.72, 0, 1);
   --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
     'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
 }
 
 @layer base {
@@ -191,6 +196,21 @@
 .dark .flowlight {
   opacity: 0.12;
 }
+/* 方案 B（档案检索台）完全收敛流光以保证高对比度纸张/石墨底色纯粹性 */
+html[data-scheme='archive'] .flowlight {
+  opacity: 0;
+}
+/* 方案 C（液态玻璃）强化 1px 顶部内高光描边 */
+.glass-specular {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 10px 28px rgba(15, 23, 42, 0.06);
+}
+.dark .glass-specular {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 12px 32px rgba(0, 0, 0, 0.35);
+}
 @keyframes flow-drift {
   0% {
     transform: translate3d(-3%, -2%, 0) rotate(0deg) scale(1.08);
@@ -213,4 +233,17 @@
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+/* Apple 窗口四角连续圆角与 1px 内高光边框：确保顶左、顶右、底左、底右四角严格贴合苹果圆角曲率 */
+.apple-window-shell {
+  border-radius: var(--window-radius);
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--border) / 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+.dark .apple-window-shell {
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--border) / 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }

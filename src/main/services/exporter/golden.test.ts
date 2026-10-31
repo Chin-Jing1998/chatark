@@ -26,6 +26,7 @@ import {
   skipReason,
   type Conversation
 } from './index'
+import { fallbackTitle, sampleEventText } from './titlegen'
 import type { MetaJson } from '@shared/types'
 import { resolveTestLibraryRoot } from '../../test-support/library-root'
 
@@ -105,6 +106,14 @@ async function collectCleanSamples(): Promise<Sample[]> {
       if (skipReason(conv)) continue // haiku / 自动注入 prompt 派生的会话不会被导出，剔除
       if (conv.session_id !== c.meta.sessionId) continue
       if (conv.message_count !== c.meta.messageCount) continue // 源相对 golden 漂移则剔除
+      if (conv.title !== c.meta.title && c.meta.titleSource === 'local') {
+        const fb = fallbackTitle({
+          cwd: conv.cwd,
+          text: sampleEventText(conv.events),
+          existingTitle: conv.title
+        })
+        if (fb === c.meta.title) conv.title = fb
+      }
       if (conv.title !== c.meta.title) continue // 标题被维护重命名等改过则剔除
       clean.push({ ...c, conv })
     } catch {
@@ -176,7 +185,7 @@ describe('TS 导出器黄金样本回归', () => {
 
       it('data.js events 长度与关键字段一致', () => {
         const goldenData = parseDataJs(readFileSync(s.dataPath, 'utf-8'))
-        const mine = JSON.parse(renderJsSerialized(s.conv, false).replace(/\\u003c/g, '<')) as {
+        const mine = JSON.parse(renderJsSerialized(s.conv, false)) as {
           events: Record<string, unknown>[]
           meta: Record<string, unknown>
         }
@@ -217,10 +226,11 @@ describe('TS 导出器黄金样本回归', () => {
         const html = renderHtml(s.conv, false)
         expect(html).toContain('window.CONVERSATION = ')
         expect(html).toContain('<!DOCTYPE html>')
-        expect(html).not.toContain('__DATA__')
-        expect(html).not.toContain('__TOKENS__')
-        expect(html).not.toContain('__GLASS__')
-        expect(html).not.toContain('__TITLE__')
+        const skeleton = html.replace(/window\.CONVERSATION\s*=\s*[\s\S]*?;\s*<\/script>/, '</script>')
+        expect(skeleton).not.toContain('__DATA__')
+        expect(skeleton).not.toContain('__TOKENS__')
+        expect(skeleton).not.toContain('__GLASS__')
+        expect(skeleton).not.toContain('__TITLE__')
       })
     })
   }

@@ -7,3 +7,9 @@ dist/
 release/
 coverage/
 *.tsbuildinfo
+.agents/
+.codex/
+.serena/
+claude code对话记录/
+codex对话记录/
+docs/design/*/shots/

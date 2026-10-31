@@ -261,8 +261,8 @@ function ToolBar({
   onRescan: () => void
 }): JSX.Element {
   return (
-    <div className="flex items-center gap-0.5 px-2 pb-1 pt-0.5">
-      <span className="flex-1 truncate pl-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="flex h-9 shrink-0 items-center gap-0.5 border-b border-border/40 px-2.5">
+      <span className="flex-1 truncate text-[12px] font-semibold tracking-tight text-foreground/85">
         对话浏览器
       </span>
       <IconBtn

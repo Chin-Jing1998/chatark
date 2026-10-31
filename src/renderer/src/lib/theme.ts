@@ -1,14 +1,19 @@
 import type { ThemeMode } from '@shared/api'
 import { THEME_MESSAGE } from '@shared/viewer'
 import {
+  DEFAULT_UI_SCHEME,
+  UI_SCHEMES,
   getPreset,
+  normalizeUiScheme,
   paletteToChromeVars,
   presetConversationTokens,
-  type ThemePreset
+  type ThemePreset,
+  type UiScheme
 } from '@shared/themes'
 
 const STORAGE_KEY = 'platform-theme'
 const PRESET_KEY = 'chatark-preset'
+const SCHEME_KEY = 'chatark-ui-scheme'
 
 export function getStoredMode(): ThemeMode {
   const v = localStorage.getItem(STORAGE_KEY)
@@ -17,6 +22,28 @@ export function getStoredMode(): ThemeMode {
 
 export function getStoredPreset(): string {
   return localStorage.getItem(PRESET_KEY) || 'default'
+}
+
+export function getStoredScheme(): UiScheme {
+  try {
+    return normalizeUiScheme(localStorage.getItem(SCHEME_KEY))
+  } catch {
+    return DEFAULT_UI_SCHEME
+  }
+}
+
+export function nextScheme(cur: UiScheme): UiScheme {
+  return cur === 'classic'
+    ? 'm3e'
+    : cur === 'm3e'
+      ? 'archive'
+      : cur === 'archive'
+        ? 'glass'
+        : 'classic'
+}
+
+export function defaultPresetForScheme(scheme: UiScheme): string {
+  return UI_SCHEMES.find((s) => s.id === scheme)?.defaultPresetId ?? 'default'
 }
 
 /** 把主题（含整套配色令牌）广播给所有已打开的对话 iframe（跨 origin，靠注入引导脚本接收）。 */
@@ -49,25 +76,36 @@ function applyChrome(preset: ThemePreset, dark: boolean): void {
  * 应用主题：nativeTheme 为真源（返回是否暗色）；外壳切换 `.dark` 类 + 预设变量，
  * 对话 iframe 广播（含整套配色令牌，成套融合），并告知主进程用于新载入 iframe 的首屏注入。
  */
-export async function applyTheme(mode: ThemeMode, presetId: string): Promise<void> {
+export async function applyTheme(
+  mode: ThemeMode,
+  presetId: string,
+  scheme: UiScheme = DEFAULT_UI_SCHEME
+): Promise<void> {
   const preset = getPreset(presetId)
   const dark = await window.api.setThemeSource(mode)
   document.documentElement.classList.toggle('dark', dark)
+  document.documentElement.dataset.scheme = scheme
   localStorage.setItem(STORAGE_KEY, mode)
   localStorage.setItem(PRESET_KEY, presetId)
+  localStorage.setItem(SCHEME_KEY, scheme)
   applyChrome(preset, dark)
   const theme = mode === 'system' ? 'auto' : mode
-  const tokens = presetConversationTokens(preset, dark)
+  const tokens = presetConversationTokens(preset, dark, scheme)
   broadcastToFrames(theme, tokens)
   void window.api.setThemeTokens(tokens)
 }
 
 /** 系统外观翻转时（system 模式）重算并同步外壳 + 对话正文（无需切模式）。 */
-export function reapplyForSystem(presetId: string, dark: boolean): void {
+export function reapplyForSystem(
+  presetId: string,
+  dark: boolean,
+  scheme: UiScheme = DEFAULT_UI_SCHEME
+): void {
   const preset = getPreset(presetId)
   document.documentElement.classList.toggle('dark', dark)
+  document.documentElement.dataset.scheme = scheme
   applyChrome(preset, dark)
-  const tokens = presetConversationTokens(preset, dark)
+  const tokens = presetConversationTokens(preset, dark, scheme)
   broadcastToFrames('auto', tokens)
   void window.api.setThemeTokens(tokens)
 }

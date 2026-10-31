@@ -8,7 +8,9 @@ import { autoExportLogPath } from '../app-paths'
 export type { HookStatus }
 
 const SETTINGS = join(homedir(), '.claude', 'settings.json')
+const CODEX_CONFIG = join(homedir(), '.codex', 'config.toml')
 const OUR_MARKER = '--export-stdin' // 本应用钩子命令的标识子串
+const CODEX_EXPORT_MARKER = 'codex-project-export' // Codex 退出归档钩子标识
 const PY_MARKER = 'chat_export' // 旧 Python 版钩子的标识子串
 
 interface HookEntry {
@@ -250,6 +252,18 @@ function isOutdated(
   )
 }
 
+async function isCodexHookInstalled(): Promise<boolean> {
+  try {
+    const raw = await fs.readFile(CODEX_CONFIG, 'utf8')
+    return (
+      raw.includes('[[hooks.SessionEnd]]') &&
+      (raw.includes(OUR_MARKER) || raw.includes(CODEX_EXPORT_MARKER))
+    )
+  } catch {
+    return false
+  }
+}
+
 export async function hookStatus(): Promise<HookStatus> {
   const res = await readSettings()
   const s = res.kind === 'ok' ? res.settings : null
@@ -260,6 +274,7 @@ export async function hookStatus(): Promise<HookStatus> {
     .filter((h) => (h.command ?? '').includes(OUR_MARKER))
   const logPath = autoExportLogPath(userDataDir())
   const expected = expectedHook()
+  const codexInstalled = await isCodexHookInstalled()
   return {
     installed: ourHooks.length > 0,
     pythonHookPresent: Object.values(s?.hooks ?? {})
@@ -269,7 +284,8 @@ export async function hookStatus(): Promise<HookStatus> {
     needsUpdate:
       ourHooks.length > 0 && app.isPackaged && ourHooks.some((h) => isOutdated(h, expected)),
     logPath,
-    logExists: existsSync(logPath)
+    logExists: existsSync(logPath),
+    codexInstalled
   }
 }
 

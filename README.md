@@ -88,6 +88,22 @@ src/
 
 ## 自动导出的工作方式
 
+### 本机项目副本（2026-10-31）
+
+本机在 Claude Code 与 Codex 双端启用相同的退出归档机制：同时写入设置中的集中历史库，
+以及项目归档目录 `<会话启动项目>/claude code对话记录/<时间戳>_<标题>_<会话标识>/`（Claude Code）
+与 `<会话启动项目>/codex对话记录/<时间戳>_<标题>_<会话标识>/`（Codex）。两处均保存
+`对话.html`、`对话.md`、`data.js`、`meta.json`、`transcript.jsonl`。
+项目副本复用本仓库导出引擎，独立打包后不依赖应用安装路径；同一会话续接后更新原目录，
+空会话不生成文件。Codex 原始转录（`~/.codex/sessions` 与 `~/.codex/archived_sessions`）由导出引擎原生适配并剥离系统注入上下文，优先使用 `~/.codex/session_index.jsonl` 中的会话标题或首条有效提问，项目归档不调用模型。
+
+构建入口：`node scripts/build-project-export.mjs`。本机部署入口为
+`~/.local/share/claude-project-export/export.cjs` 与 `~/.local/share/codex-project-export/export.cjs`，诊断日志为各自目录下的 `export.log`。
+项目副本优先使用 `CODEX_PROJECT_DIR` / `CLAUDE_PROJECT_DIR`，其次使用转录记录的初始工作目录。
+作者与修订者为 `Chin_Jing1998`，导出时间使用北京时间。原始转录逐字节保留。
+
+以下为应用原生集中导出的工作方式：
+
 - **钩子命令**：macOS 写入 `[ -n "$CHATARK_TITLEGEN" ] || ELECTRON_RUN_AS_NODE=1 "<ChatArk 可执行文件>" "<app.asar>/out/main/headless.js" --export-stdin --user-data "<userData>"`，同步执行、`timeout: 10`。`ELECTRON_RUN_AS_NODE` 令 Electron 二进制以纯 Node 运行，冷启动约 0.1 s，无窗口、无程序坞图标。Windows 与 Linux 写入 `"<可执行文件>" --export-stdin --user-data "<userData>"`（Electron 无窗模式，AppImage 用 `$APPIMAGE`）。Windows 命令按 Git Bash 语法生成；若你的 Claude Code 以 PowerShell 执行钩子，请把命令手工改为 `& "…ChatArk.exe" --export-stdin --user-data "…"` 形式。
 - **启动器 → worker**：钩子进程只读取 SessionEnd 的 stdin JSON，随即派生一个脱离父进程的 worker（`--export-worker`）并立即退出，因此不会拖住会话退出，也不受钩子超时影响。worker 先用本地规则标题写出五件套，再调用 claude 起名并改名；转录未变化时不重写文件；若既有标题仍是本地规则（上次起名失败或处于冷却期），会只补做一次起名。同一会话与起名各有文件锁（`<userData>/locks/`），成批结束会话时串行起名。
 - **起名隔离**：`claude -p --model haiku --tools "" --strict-mcp-config --mcp-config '{"mcpServers":{}}' --no-session-persistence --setting-sources ""`，环境变量按白名单裁剪、工作目录为系统临时目录，因此派生会话不加载任何 MCP、工具与用户钩子，也不在 `~/.claude/projects` 落盘。认证失败（未登录或 OAuth 过期）后 30 分钟内不再重试；起名依赖终端版 `claude` 的登录态，过期时执行一次 `claude /login` 即可恢复，期间导出照常落盘、仅标题为本地规则。

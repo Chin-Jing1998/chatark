@@ -4,6 +4,7 @@
  * 自 chat_export/model.py 的 build_conversation 忠实移植。渲染器只依赖本模块产出的
  * 数据结构，不再触碰原始 JSON。
  */
+import { isCodexTranscript, normalizeCodexRecords } from './codex'
 import * as paths from './paths'
 import * as textutil from './textutil'
 import * as timeutil from './timeutil'
@@ -51,6 +52,9 @@ function pickModel(modelOrder: string[], counts: Map<string, number>): string | 
 
 /** 把记录列表归一为 Conversation。 */
 export function buildConversation(records: RawRecord[], opts: BuildOptions = {}): Conversation {
+  const normalized = isCodexTranscript(records)
+    ? normalizeCodexRecords(records, { sourcePath: opts.sourcePath })
+    : records
   const dataLimit = opts.dataLimit ?? paths.TRUNCATE_LIMIT_DATA
   const conv = makeConversation(opts.sourcePath ?? '')
 
@@ -61,7 +65,7 @@ export function buildConversation(records: RawRecord[], opts: BuildOptions = {})
   const modelCounts = new Map<string, number>()
   const modelOrder: string[] = []
 
-  for (const rec of records) {
+  for (const rec of normalized) {
     const rtype = rec['type']
 
     if (!conv.session_id && rec['sessionId']) conv.session_id = String(rec['sessionId'])

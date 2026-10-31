@@ -7,6 +7,8 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 
+import { extractCodexSessionIdFromFilename } from './codex'
+import { parseText } from './jsonl-parser'
 import * as paths from './paths'
 import * as textutil from './textutil'
 
@@ -20,6 +22,7 @@ export interface SessionEntry {
   path: string
   cwd?: string
   mtimeMs: number
+  source?: 'claude' | 'codex'
 }
 
 async function safeMtimeMs(p: string): Promise<number> {
@@ -30,14 +33,45 @@ async function safeMtimeMs(p: string): Promise<number> {
   }
 }
 
-/** 枚举所有 projects 子目录下的 *.jsonl，按文件名取 sessionId。 */
+/** 递归收集指定根目录下的 *.jsonl 文件（限深防环）。 */
+async function collectJsonlFiles(root: string, maxDepth = 4): Promise<string[]> {
+  const files: string[] = []
+  const walk = async (dir: string, depth: number): Promise<void> => {
+    let entries: Array<import('node:fs').Dirent>
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const ent of entries) {
+      const full = path.join(dir, ent.name)
+      if (ent.isDirectory()) {
+        if (depth < maxDepth) await walk(full, depth + 1)
+      } else if (ent.isFile() && ent.name.endsWith('.jsonl')) {
+        files.push(full)
+      }
+    }
+  }
+  await walk(root, 0)
+  return files
+}
+
+/** 枚举 Claude Code（~/.claude/projects）与 Codex（~/.codex/sessions 及 archived_sessions）下的所有会话。 */
 export async function listSessions(): Promise<SessionEntry[]> {
-  const out: SessionEntry[] = []
+  const byId = new Map<string, SessionEntry>()
+  const upsert = (entry: SessionEntry): void => {
+    const prev = byId.get(entry.sessionId)
+    if (!prev || entry.mtimeMs >= prev.mtimeMs) {
+      byId.set(entry.sessionId, entry)
+    }
+  }
+
+  // 1. Claude Code 会话：~/.claude/projects/*/*.jsonl
   let dirs: string[]
   try {
     dirs = await fs.readdir(paths.PROJECTS_ROOT)
   } catch {
-    return out
+    dirs = []
   }
   for (const d of dirs) {
     const sub = path.join(paths.PROJECTS_ROOT, d)
@@ -52,14 +86,30 @@ export async function listSessions(): Promise<SessionEntry[]> {
     for (const f of files) {
       if (!f.endsWith('.jsonl')) continue
       const full = path.join(sub, f)
-      out.push({
+      upsert({
         sessionId: f.slice(0, -'.jsonl'.length),
         path: full,
-        mtimeMs: await safeMtimeMs(full)
+        mtimeMs: await safeMtimeMs(full),
+        source: 'claude'
       })
     }
   }
-  return out
+
+  // 2. Codex 会话：~/.codex/sessions/YYYY/MM/DD/*.jsonl 与 ~/.codex/archived_sessions/*.jsonl
+  const [codexActive, codexArchived] = await Promise.all([
+    collectJsonlFiles(paths.CODEX_SESSIONS_ROOT, 4),
+    collectJsonlFiles(paths.CODEX_ARCHIVED_ROOT, 1)
+  ])
+  for (const full of [...codexArchived, ...codexActive]) {
+    upsert({
+      sessionId: extractCodexSessionIdFromFilename(full),
+      path: full,
+      mtimeMs: await safeMtimeMs(full),
+      source: 'codex'
+    })
+  }
+
+  return [...byId.values()]
 }
 
 export interface QuickInfo {
@@ -69,6 +119,7 @@ export interface QuickInfo {
   turns: number
   model: string | null
   mtimeMs: number
+  source?: 'claude' | 'codex'
 }
 
 /** 按码点切片到 maxLen（对齐 Python first_prompt[:40]）。 */
@@ -77,7 +128,7 @@ function sliceCodepoints(s: string, max: number): string {
   return arr.length <= max ? s : arr.slice(0, max).join('')
 }
 
-/** 轻量扫描一个 jsonl，取 sessionId / cwd / 标题 / 回合数 / 主导模型。 */
+/** 轻量扫描一个 jsonl（兼容 Claude Code 与 Codex rollout），取 sessionId / cwd / 标题 / 回合数 / 主导模型。 */
 export async function quickInfo(jsonlPath: string): Promise<QuickInfo> {
   let sid = ''
   let cwd = ''
@@ -85,21 +136,14 @@ export async function quickInfo(jsonlPath: string): Promise<QuickInfo> {
   let users = 0
   let assistants = 0
   let firstPrompt = ''
+  let source: 'claude' | 'codex' = 'claude'
   const modelCounts = new Map<string, number>()
   const modelOrder: string[] = []
   try {
     const text = await fs.readFile(jsonlPath, 'utf-8')
-    for (const rawLine of text.split(/\r\n|\r|\n/)) {
-      const line = rawLine.trim()
-      if (!line) continue
-      let o: Record<string, unknown>
-      try {
-        const parsed = JSON.parse(line)
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) continue
-        o = parsed as Record<string, unknown>
-      } catch {
-        continue
-      }
+    const parsed = parseText(text, jsonlPath)
+    source = parsed.sourceClient ?? 'claude'
+    for (const o of parsed.records) {
       if (!sid && o['sessionId']) sid = String(o['sessionId'])
       if (!cwd && o['cwd']) cwd = String(o['cwd'])
       if (o['type'] === 'custom-title' && o['customTitle']) title = String(o['customTitle'])
@@ -139,14 +183,15 @@ export async function quickInfo(jsonlPath: string): Promise<QuickInfo> {
       break
     }
   }
-  const stem = path.basename(jsonlPath).replace(/\.jsonl$/, '')
+  const fallbackSid = extractCodexSessionIdFromFilename(jsonlPath)
   return {
-    sessionId: sid || stem,
+    sessionId: sid || fallbackSid,
     cwd,
     title: title || firstPrompt || '(未命名)',
     turns: users + assistants,
     model,
-    mtimeMs: await safeMtimeMs(jsonlPath)
+    mtimeMs: await safeMtimeMs(jsonlPath),
+    source
   }
 }
 

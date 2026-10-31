@@ -43,9 +43,12 @@ export default function ProjectsPanel(): JSX.Element {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-0.5 px-2 pb-1 pt-0.5">
-        <span className="flex-1 truncate pl-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          按项目
+      <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border/40 px-2.5">
+        <span className="flex-1 truncate text-[12px] font-semibold tracking-tight text-foreground/85">
+          按项目归档
+        </span>
+        <span className="text-[11px] tabular-nums text-muted-foreground">
+          {groups.length}
         </span>
         <button
           type="button"

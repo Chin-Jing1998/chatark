@@ -49,10 +49,15 @@ export default function SearchPanel({ active }: { active: boolean }): JSX.Elemen
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-2 pb-1 pt-0.5">
-        <div className="mb-2 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-border/40 px-2.5">
+        <span className="truncate text-[12px] font-semibold tracking-tight text-foreground/85">
           全文搜索
-        </div>
+        </span>
+        <span className="text-[11px] tabular-nums text-muted-foreground" role="status" aria-live="polite">
+          {term ? `命中 ${results.length} 条` : `${state.total} 条索引`}
+        </span>
+      </div>
+      <div className="px-2 pb-1.5 pt-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -73,9 +78,6 @@ export default function SearchPanel({ active }: { active: boolean }): JSX.Elemen
               <X className="size-3.5" />
             </button>
           )}
-        </div>
-        <div className="mt-2 min-h-[15px] text-[11px] text-muted-foreground" role="status" aria-live="polite">
-          {term ? `命中 ${results.length} 条` : ''}
         </div>
       </div>
 

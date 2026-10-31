@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Chin_Jing1998">
+<meta name="revised" content="2026-10-31">
+<title>ChatArk 现状基线（Obsidian 风双顶栏与左色条卡片）</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #303030;
+    --muted: #f3f3f3;
+    --muted-fg: #666666;
+    --sidebar: #f7f7f7;
+    --sidebar-fg: #383838;
+    --rail: #efefef;
+    --border: #e3e3e3;
+    --accent: #eaeaea;
+    --brand: #6b4eff;
+    --brand-soft: rgba(107, 78, 255, 0.14);
+    --conv-bg: #f4f5f7;
+    --card: #ffffff;
+    --code-bg: #f6f8fa;
+    --code-line: #e2e6ec;
+    --user: #2563eb;
+    --tool: #d97706;
+    --answer: #059669;
+  }
+  html.dark {
+    --bg: #202020;
+    --fg: #dadada;
+    --muted: #2d2d2d;
+    --muted-fg: #969696;
+    --sidebar: #181818;
+    --sidebar-fg: #b8b8b8;
+    --rail: #131313;
+    --border: #383838;
+    --accent: #333333;
+    --brand: #9480ff;
+    --brand-soft: rgba(148, 128, 255, 0.18);
+    --conv-bg: #0d1117;
+    --card: #161b22;
+    --code-bg: #0d1117;
+    --code-line: #30363d;
+    --user: #58a6ff;
+    --tool: #f59e0b;
+    --answer: #3fb950;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
+  .shell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+  }
+  /* 现状痛点 1：独立 40px TopBand 仅放居中应用名，与下方 40px 标签栏叠成 80px 顶部高度 */
+  .topband {
+    height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: relative;
+    padding: 0 12px;
+  }
+  .traffic {
+    position: absolute;
+    left: 14px;
+    display: flex;
+    gap: 8px;
+  }
+  .traffic i {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: block;
+  }
+  .traffic .r { background: #ff5f57; }
+  .traffic .y { background: #febc2e; }
+  .traffic .g { background: #28c840; }
+  .topband-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted-fg);
+    letter-spacing: 0.02em;
+  }
+  .topband-right {
+    position: absolute;
+    right: 10px;
+    display: flex;
+    gap: 4px;
+  }
+  .icon-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-fg);
+  }
+  .icon-btn:hover { background: var(--accent); color: var(--fg); }
+  .body-row {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+  .rail {
+    width: 48px;
+    flex-shrink: 0;
+    background: var(--rail);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+  }
+  .rail-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .rail-btn {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-fg);
+  }
+  .rail-btn.active {
+    color: var(--brand);
+  }
+  .rail-btn.active::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    width: 3px;
+    height: 20px;
+    border-radius: 3px;
+    background: var(--brand);
+  }
+  .left-panel {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .panel-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px 4px 12px;
+    gap: 2px;
+  }
+  .panel-title {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted-fg);
+  }
+  .tree-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 6px 16px;
+  }
+  .cat-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 6px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--sidebar-fg);
+  }
+  .cat-row .count {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--muted-fg);
+    font-variant-numeric: tabular-nums;
+  }
+  /* 现状痛点 2：单行树叶挤压图标、置顶、收藏、标题、模型标，长标题截断严重且无时间/消息数 */
+  .leaf-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 8px 5px 22px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--sidebar-fg);
+    text-align: left;
+  }
+  .leaf-row:hover { background: var(--accent); }
+  .leaf-row.active {
+    background: var(--brand-soft);
+    color: var(--fg);
+    font-weight: 500;
+  }
+  .leaf-title {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .model-tag {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--muted-fg);
+  }
+  .stage {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    position: relative;
+  }
+  .tabbar {
+    height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .tab {
+    max-width: 210px;
+    min-width: 130px;
+    height: 33px;
+    padding: 0 12px;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--muted-fg);
+  }
+  .tab.active {
+    background: var(--bg);
+    color: var(--fg);
+    font-weight: 500;
+    border-color: var(--border);
+    border-top: 2px solid var(--brand);
+  }
+  .tab span {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .conv-viewport {
+    flex: 1;
+    min-height: 0;
+    background: var(--conv-bg);
+    overflow-y: auto;
+    padding: 12px 16px 72px;
+  }
+  .conv-grid {
+    display: grid;
+    grid-template-columns: 208px 12px minmax(0, 1fr) 12px 248px;
+    max-width: 1440px;
+    margin: 0 auto;
+    align-items: start;
+  }
+  .conv-aside {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    position: sticky;
+    top: 0;
+  }
+  .conv-aside h3 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted-fg);
+  }
+  .toc-link {
+    display: block;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--fg);
+    text-decoration: none;
+    margin-bottom: 3px;
+  }
+  .toc-link.active {
+    background: var(--accent);
+    font-weight: 600;
+  }
+  .toc-link .n {
+    color: var(--muted-fg);
+    margin-right: 5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .feed {
+    min-width: 0;
+  }
+  .msg {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 15px;
+    margin-bottom: 12px;
+  }
+  .msg-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .role-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .role-dot.u { background: var(--user); }
+  .role-dot.t { background: var(--tool); }
+  .role-dot.a { background: var(--answer); }
+  .msg-time {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--muted-fg);
+    margin-left: auto;
+  }
+  .msg-body {
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .msg-body p { margin: 0.45em 0; }
+  pre.code {
+    margin: 8px 0 2px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--code-bg);
+    border: 1px solid var(--code-line);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    overflow-x: auto;
+  }
+  details summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .meta-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 13px;
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .meta-row b { color: var(--muted-fg); font-weight: 500; }
+  .stat-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    margin: 6px 0;
+  }
+  .stat-row .lab { width: 58px; color: var(--muted-fg); }
+  .stat-row .track { flex: 1; height: 7px; background: var(--accent); border-radius: 4px; overflow: hidden; }
+  .stat-row .bar { height: 100%; background: var(--brand); border-radius: 4px; }
+  .stat-row .num { width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* 现状痛点 3：空状态仅有三个裸文字按钮 */
+  .empty-stage {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--bg);
+  }
+  .empty-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 15px;
+    color: var(--brand);
+    border-radius: 6px;
+  }
+  .empty-link:hover { background: var(--accent); }
+  .empty-link kbd {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 12px;
+    color: var(--muted-fg);
+  }
+
+  /* 现状痛点 4：单列长滚平铺设置弹窗 */
+  .modal-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.42);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 40;
+  }
+  .modal-box {
+    width: 640px;
+    max-height: 78vh;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.28);
+  }
+  .modal-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-scroll {
+    padding: 16px 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .setting-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .setting-card h4 { margin: 0 0 4px; font-size: 14px; }
+  .setting-card p { margin: 0 0 10px; font-size: 13px; color: var(--muted-fg); }
+  .mode-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .mode-btn {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 13px;
+    text-align: center;
+  }
+  .mode-btn.active {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    font-weight: 600;
+  }
+
+  /* 底部状态切换条 */
+  .state-switcher {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(24, 24, 27, 0.9);
+    color: #f4f4f5;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+    font-size: 13px;
+  }
+  .state-switcher .tag {
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    font-weight: 600;
+  }
+  .state-switcher button {
+    padding: 4px 10px;
+    border-radius: 999px;
+    color: #d4d4d8;
+    font-size: 13px;
+  }
+  .state-switcher button.active {
+    background: #6b4eff;
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  body[data-state="empty"] .tabbar,
+  body[data-state="empty"] .conv-viewport { display: none; }
+  body[data-state="empty"] .empty-stage { display: flex; }
+  body[data-state="overlay"] .modal-scrim { display: flex; }
+
+  /* Apple macOS 窗口四角同心圆角（Continuous Squircle 18px + 1px 内高光描边） */
+  html, body {
+    padding: 8px !important;
+    background: #d8dce6 !important;
+  }
+  html.dark, html.dark body {
+    background: #07090e !important;
+  }
+  .shell, .workbench, .archive-shell, .ambient-canvas {
+    width: calc(100vw - 16px) !important;
+    height: calc(100vh - 16px) !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+    box-shadow:
+      0 18px 48px rgba(15, 23, 42, 0.18),
+      0 0 0 1px rgba(15, 23, 42, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
+  }
+  html.dark .shell, html.dark .workbench, html.dark .archive-shell, html.dark .ambient-canvas {
+    box-shadow:
+      0 22px 56px rgba(0, 0, 0, 0.65),
+      0 0 0 1px rgba(255, 255, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  }
+
+</style>
+</head>
+<body data-state="reading">
+<div class="shell">
+  <header class="topband">
+    <div class="traffic"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <span class="topband-title">ChatArk（现状基线：双 40px 顶栏 + 单行挤压侧栏）</span>
+    <div class="topband-right">
+      <button class="icon-btn" id="themeBtn" title="切换亮暗">◑</button>
+      <button class="icon-btn" onclick="setState('overlay')" title="打开设置">⚙</button>
+    </div>
+  </header>
+
+  <div class="body-row">
+    <nav class="rail" aria-label="视图切换栏">
+      <div class="rail-group">
+        <button class="rail-btn active" title="对话浏览器">▤</button>
+        <button class="rail-btn" title="全文搜索">⌕</button>
+        <button class="rail-btn" title="收藏与置顶">★</button>
+        <button class="rail-btn" title="标签与分类">#</button>
+        <button class="rail-btn" title="按项目">⌂</button>
+      </div>
+      <div class="rail-group">
+        <button class="rail-btn" onclick="setState('overlay')" title="设置">⚙</button>
+      </div>
+    </nav>
+
+    <aside class="left-panel">
+      <div class="panel-toolbar">
+        <span class="panel-title">对话浏览器</span>
+        <button class="icon-btn" title="折叠全部">⇅</button>
+        <button class="icon-btn" title="排序">↓↑</button>
+        <button class="icon-btn" title="重新扫描">↻</button>
+      </div>
+      <div class="tree-scroll">
+        <div class="cat-row">▾ 架构与协议 <span class="count">4</span></div>
+        <button class="leaf-row active" onclick="setState('reading')">
+          <span>[置顶]</span>
+          <span class="leaf-title">convo:// 协议注入与主题同步</span>
+          <span class="model-tag">OPUS</span>
+        </button>
+        <button class="leaf-row" onclick="setState('reading')">
+          <span>·</span>
+          <span class="leaf-title">拖拽分隔条跨 iframe 指针穿透修复</span>
+          <span class="model-tag">SONNET</span>
+        </button>
+        <button class="leaf-row" onclick="setState('reading')">
+          <span>·</span>
+          <span class="leaf-title">导出快照 CSP 与离线自包含校验</span>
+          <span class="model-tag">HAIKU</span>
+        </button>
+
+        <div class="cat-row" style="margin-top:6px">▾ 检索与存储 <span class="count">3</span></div>
+        <button class="leaf-row" onclick="setState('reading')">
+          <span>[星标]</span>
+          <span class="leaf-title">SQLite FTS5 中文分词检索调优</span>
+          <span class="model-tag">SONNET</span>
+        </button>
+        <button class="leaf-row" onclick="setState('reading')">
+          <span>·</span>
+          <span class="leaf-title">Claude Stop Hook 增量归档脚本</span>
+          <span class="model-tag">OPUS</span>
+        </button>
+        <button class="leaf-row" onclick="setState('reading')">
+          <span>·</span>
+          <span class="leaf-title">库路径迁移与软链接回退策略</span>
+          <span class="model-tag">SONNET</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="stage">
+      <div class="tabbar" role="tablist">
+        <div class="tab active" role="tab">
+          <span>convo:// 协议注入与主题同步</span>
+          <button onclick="setState('empty')" title="关闭标签">×</button>
+        </div>
+        <div class="tab" role="tab">
+          <span>SQLite FTS5 中文分词检索调优</span>
+          <span>×</span>
+        </div>
+        <div class="tab" role="tab">
+          <span>src/main/services/theme.ts</span>
+          <span>×</span>
+        </div>
+      </div>
+
+      <div class="conv-viewport">
+        <div class="conv-grid">
+          <aside class="conv-aside">
+            <h3>提问目录 (4)</h3>
+            <a class="toc-link active" href="#m1"><span class="n">#1</span>检查 TopBand 与标签条空间</a>
+            <a class="toc-link" href="#m2"><span class="n">#2</span>convo:// 动态注入主题令牌</a>
+            <a class="toc-link" href="#m3"><span class="n">#3</span>窄屏三栏保留与进度条去抖</a>
+            <a class="toc-link" href="#m4"><span class="n">#4</span>回归测试与 golden 快照核验</a>
+          </aside>
+          <div></div>
+          <div class="feed">
+            <article class="msg" id="m1">
+              <div class="msg-head">
+                <i class="role-dot u"></i>
+                <span>用户提问 #1</span>
+                <span class="msg-time">2026-10-31 14:20:08</span>
+              </div>
+              <div class="msg-body">
+                <p>请检查现行 <code>TopBand</code>（40px）与 <code>Stage</code> 标签条（40px）分占两行的问题，并让历史库既有的 <code>对话.html</code> 在切换 6 套主题预设时同步更新背景与代码块配色。</p>
+              </div>
+            </article>
+
+            <article class="msg">
+              <div class="msg-head">
+                <i class="role-dot t"></i>
+                <span>工具调用 · Read / Edit</span>
+                <span class="msg-time">耗时 38ms</span>
+              </div>
+              <details open>
+                <summary>读取 src/main/services/theme.ts 与 src/renderer/src/app/Layout.tsx</summary>
+                <pre class="code">export function buildInjectedCss(): string {
+  const fallbackBg = nativeTheme.shouldUseDarkColors ? '#0d1117' : '#f4f5f7'
+  return EMBED_FIX_CSS + `html,body{background:var(--bg,${fallbackBg})}` + currentThemeTokensCss()
+}</pre>
+              </details>
+            </article>
+
+            <article class="msg" id="m2">
+              <div class="msg-head">
+                <i class="role-dot a"></i>
+                <span>Claude Opus 4.7 回复</span>
+                <span class="msg-time">2026-10-31 14:21:19</span>
+              </div>
+              <div class="msg-body">
+                <p>已完成根因定位：现行外壳顶部由独立 <code>TopBand</code> 与 <code>Stage</code> 标签栏上下叠放，合计占用 80px 垂直空间；同时存量 <code>对话.html</code> 依赖 <code>convo://</code> 协议在响应头动态注入 <code>html[data-theme]</code> 变量以覆盖静态模板默认色。</p>
+                <pre class="code">// 令牌名白名单校验，防止自定义键值闭合 style 标签
+const TOKEN_KEY_RE = /^--[A-Za-z0-9-]+$/
+export function currentThemeTokensCss(): string {
+  if (!currentTokens) return ''
+  return `html[data-theme]{${Object.entries(currentTokens).map(([k, v]) => `${k}:${v}`).join(';')}}`
+}</pre>
+              </div>
+            </article>
+          </div>
+          <div></div>
+          <aside class="conv-aside">
+            <h3>会话信息</h3>
+            <div class="meta-row"><b>分类</b><span>架构与协议</span></div>
+            <div class="meta-row"><b>模型</b><span>claude-opus-4-7</span></div>
+            <div class="meta-row"><b>消息总数</b><span>42 条</span></div>
+            <div class="meta-row"><b>开始时间</b><span>2026-10-31 14:20</span></div>
+            <h3 style="margin-top:14px">工具调用分布</h3>
+            <div class="stat-row"><span class="lab">Read</span><div class="track"><div class="bar" style="width:78%"></div></div><span class="num">18</span></div>
+            <div class="stat-row"><span class="lab">Edit</span><div class="track"><div class="bar" style="width:52%"></div></div><span class="num">11</span></div>
+            <div class="stat-row"><span class="lab">Bash</span><div class="track"><div class="bar" style="width:36%"></div></div><span class="num">7</span></div>
+          </aside>
+        </div>
+      </div>
+
+      <div class="empty-stage">
+        <button class="empty-link" onclick="setState('reading')"><span>打开对话</span><kbd>⌘O</kbd></button>
+        <button class="empty-link" onclick="setState('reading')"><span>全文搜索</span><kbd>⌘K</kbd></button>
+        <button class="empty-link" onclick="setState('reading')"><span>最近打开</span><kbd>⌘R</kbd></button>
+      </div>
+
+      <div class="modal-scrim" onclick="if(event.target===this)setState('reading')">
+        <div class="modal-box">
+          <div class="modal-header">
+            <span>设置（现状：单列长滚平铺，无左侧锚点导航）</span>
+            <button class="icon-btn" onclick="setState('reading')">×</button>
+          </div>
+          <div class="modal-scroll">
+            <div class="setting-card">
+              <h4>外观</h4>
+              <p>外壳与对话正文统一随主题变化。</p>
+              <div class="mode-grid">
+                <button class="mode-btn active">跟随系统</button>
+                <button class="mode-btn" onclick="setDark(false)">亮色</button>
+                <button class="mode-btn" onclick="setDark(true)">暗色</button>
+              </div>
+            </div>
+            <div class="setting-card">
+              <h4>主题风格</h4>
+              <p>切换后外壳强调色与对话正文整套配色同步变化（6 套预设需向下滚动查看）。</p>
+              <div class="mode-grid">
+                <button class="mode-btn active">极光蓝紫</button>
+                <button class="mode-btn">Nord 极地</button>
+                <button class="mode-btn">Solarized 暖阳</button>
+              </div>
+            </div>
+            <div class="setting-card">
+              <h4>保存路径与迁移 / 补录 / 自动导出</h4>
+              <p>当前库路径：~/编程项目工作站/Claude对话归档库（继续向下长滚配置 Hook 与补录）</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="state-switcher" role="toolbar" aria-label="原型状态切换">
+  <span class="tag">现状基线</span>
+  <button id="btn-reading" class="active" onclick="setState('reading')">阅读对话详情</button>
+  <button id="btn-empty" onclick="setState('empty')">主舞台空状态</button>
+  <button id="btn-overlay" onclick="setState('overlay')">设置弹窗</button>
+  <button id="btn-dark" onclick="toggleDark()">切换暗色</button>
+</div>
+
+<script>
+  function setState(s) {
+    document.body.setAttribute('data-state', s);
+    ['reading', 'empty', 'overlay'].forEach(function(k) {
+      var el = document.getElementById('btn-' + k);
+      if (el) el.classList.toggle('active', k === s);
+    });
+  }
+  function setDark(d) {
+    document.documentElement.classList.toggle('dark', d);
+    var b = document.getElementById('btn-dark');
+    if (b) b.textContent = d ? '切换亮色' : '切换暗色';
+  }
+  function toggleDark() {
+    setDark(!document.documentElement.classList.contains('dark'));
+  }
+  document.getElementById('themeBtn').addEventListener('click', toggleDark);
+  (function initFromQuery() {
+    var p = new URLSearchParams(location.search);
+    var st = p.get('state');
+    if (st === 'empty' || st === 'overlay' || st === 'reading') setState(st);
+    if (p.get('theme') === 'dark') setDark(true);
+  })();
+</script>
+</body>
+</html>

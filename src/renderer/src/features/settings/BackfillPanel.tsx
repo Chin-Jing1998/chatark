@@ -56,7 +56,7 @@ export default function BackfillPanel(): JSX.Element {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        补录只在本机有意义：依赖你 ~/.claude 下的原始会话。分发给他人后，对方在自己机器上补录自己的会话。
+        补录只在本机有意义：依赖本机 ~/.claude 与 ~/.codex 下的原始会话。分发给他人后，对方在自己机器上补录自己的会话。
       </p>
       <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">分享对话包前请自行核查。</span>
@@ -100,6 +100,9 @@ export default function BackfillPanel(): JSX.Element {
             {list.map((s) => (
               <label key={s.sessionId} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
                 <input type="checkbox" checked={selected.has(s.sessionId)} onChange={() => toggle(s.sessionId)} />
+                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase text-muted-foreground">
+                  {s.source === 'codex' ? 'Codex' : 'Claude'}
+                </span>
                 <span className="min-w-0 flex-1 truncate font-medium">{s.title}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">{s.turns} 轮</span>
               </label>

@@ -7,13 +7,12 @@ import TopBand from '@renderer/features/shell/TopBand'
 import CommandPalette from '@renderer/features/command/CommandPalette'
 import SettingsDialog from '@renderer/features/settings/SettingsDialog'
 import { useHookUpdateNotice } from '@renderer/features/settings/useHookUpdateNotice'
+import { useTheme } from '@renderer/lib/useTheme'
 
-const RAIL_WIDTH = 48
-const DEFAULT_LEFT = 240
-const MIN_LEFT = 200
+const DEFAULT_LEFT = 264
+const MIN_LEFT = 216
 const MAX_LEFT = 520
-// v2：默认宽度收窄（240），旧键的 270 值失效改用新默认；手动调过的用户重新拖即可
-const WIDTH_KEY = 'chatark-left-width-v2'
+const WIDTH_KEY = 'chatark-left-width-v3'
 
 function loadLeftWidth(): number {
   const v = Number(localStorage.getItem(WIDTH_KEY))
@@ -29,8 +28,12 @@ export default function Layout(): JSX.Element {
     open: false,
     tab: 'general'
   })
+  const { scheme } = useTheme()
 
   const openSettings = (tab = 'general'): void => setSettings({ open: true, tab })
+  const railWidth =
+    scheme === 'archive' ? 0 : scheme === 'classic' ? 48 : scheme === 'm3e' ? 60 : 64
+  const leftSpanWidth = railWidth + leftWidth
 
   useHookUpdateNotice()
 
@@ -53,20 +56,30 @@ export default function Layout(): JSX.Element {
   }, [])
 
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden bg-transparent text-foreground">
+    <div className="apple-window-shell relative flex h-screen flex-col overflow-hidden bg-transparent text-foreground">
       <div className="flowlight" aria-hidden />
-      <TopBand />
+      <TopBand
+        leftSpanWidth={leftSpanWidth}
+        onOpenCommand={() => setCmdOpen(true)}
+        onOpenSettings={(tab) => openSettings(tab)}
+      />
       <div className="relative z-10 flex min-h-0 flex-1">
-        <IconRail view={view} onChangeView={setView} onOpenSettings={() => openSettings()} />
-        <LeftPanel view={view} width={leftWidth} animate={!dragging} />
+        {scheme !== 'archive' && (
+          <IconRail view={view} onChangeView={setView} onOpenSettings={() => openSettings()} />
+        )}
+        <LeftPanel view={view} onChangeView={setView} width={leftWidth} animate={!dragging} />
         <Resizer
           onWidth={setWidth}
-          railWidth={RAIL_WIDTH}
+          railWidth={railWidth}
           defaultWidth={DEFAULT_LEFT}
           onDragStart={() => setDragging(true)}
           onDragEnd={() => setDragging(false)}
         />
-        <Stage onOpenCommand={() => setCmdOpen(true)} dragging={dragging} />
+        <Stage
+          onOpenCommand={() => setCmdOpen(true)}
+          onOpenSettings={(tab) => openSettings(tab)}
+          dragging={dragging}
+        />
       </div>
 
       <CommandPalette

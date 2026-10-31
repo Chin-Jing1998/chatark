@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "project": "ChatArk 桌面对话归档工作台",
+  "brief": "重构 Electron 外壳顶栏与标签栏垂直层级、五视图侧栏条目信息密度、空状态仪表盘、分区设置弹窗及 convo:// 内嵌对话阅读页模板。",
+  "round": "01",
+  "lang": "zh",
+  "nativeViewport": "1320x860",
+  "candidates": [
+    {
+      "id": "baseline",
+      "name": "现状基线（Obsidian 双顶栏 + 左色条卡片）",
+      "concept": "还原当前独立 40px TopBand 与 40px 标签栏双行叠放、单行树叶长标题截断、三链接空状态与单列平铺设置弹窗。",
+      "typography": "System Sans (-apple-system / PingFang SC) 13–14px，无等宽时间索引层级。",
+      "palette": [
+        "#FFFFFF",
+        "#F7F7F7",
+        "#EFEFEF",
+        "#6B4EFF",
+        "#F4F5F7"
+      ],
+      "traits": [
+        "双 40px 顶栏叠放占用 80px 垂直空间",
+        "单行树叶挤压置顶、星标、标题与模型标",
+        "空状态仅有三个裸文字快捷键按钮",
+        "设置弹窗单列长滚无左侧分区导航"
+      ],
+      "source": "baseline.html",
+      "baseline": true,
+      "interactive": true
+    },
+    {
+      "id": "option-a-m3e",
+      "name": "方案 A：M3E 色调容器工作台（Expressive Tonal Container）",
+      "concept": "以 Material 3 Expressive 色调容器（Surface Container Low/High）与内嵌圆角舞台画布建立清晰的功能分舱与动态反馈。",
+      "typography": "Plus Jakarta Sans / PingFang SC（600 半粗标题），正文 14px，胶囊徽章与计数采用紧凑圆体 tabular-nums。",
+      "palette": [
+        "#F6F4FA",
+        "#EAE6F3",
+        "#FFFFFF",
+        "#5B4CE8",
+        "#EDE8FF"
+      ],
+      "traits": [
+        "内嵌 24px 大圆角主舞台画布，顶栏与标签栏合流释放 40px 高度",
+        "双行胶囊徽章侧栏条目，完整呈现标题、模型、置顶与消息数",
+        "无左粗线色调容器消息卡（20px 圆角）+ 胶囊状态条工具折叠",
+        "内置跨方案模块自由混搭器与三状态一键切换"
+      ],
+      "source": "option-a-m3e.html",
+      "interactive": true
+    },
+    {
+      "id": "option-b-archive",
+      "name": "方案 B：高密度档案检索台（Precision Editorial Archive）",
+      "concept": "以代码与文献档案室的高对比度、等宽数字索引与单行 42px 一体式标题标签带让位于高频检索与长文阅读。",
+      "typography": "Inter / PingFang SC 配合 JetBrains Mono / SF Mono（11–12px tabular-nums）全面承载时间戳、消息数、模型标与路径。",
+      "palette": [
+        "#F8F7F4",
+        "#F0EEE9",
+        "#18181B",
+        "#B45309",
+        "#FEF3C7"
+      ],
+      "traits": [
+        "顶栏左区按 284px 侧栏分界对齐，五视图分段栏内嵌至侧栏顶部，右区等高排布圆角标签与一体化检索控制簇",
+        "左栏 124px 等宽时间/角色编号锚点 + 右栏宽幅正文的编年体排版",
+        "工具调用采用紧凑终端单行折叠条（$ read + edit [24ms]）",
+        "右侧会话信息改为高密度键值规格网格（SPEC）与等宽目录"
+      ],
+      "source": "option-b-archive.html",
+      "interactive": true
+    },
+    {
+      "id": "option-c-glass",
+      "name": "方案 C：精致层叠液态玻璃（Refined Tactile Liquid Glass）",
+      "concept": "保留 macOS 原生液态玻璃与 6 套预设基因，通过 1px 顶部内高光边缘、悬浮岛式导航与窗口化代码块提升精致度。",
+      "typography": "-apple-system / SF Pro Text / PingFang SC 精细字重阶梯，SF Mono 承载代码块窗口顶栏与统计。",
+      "palette": [
+        "#EEF1F8",
+        "#FFFFFF",
+        "#5850EC",
+        "#5E81AC",
+        "#3A7D5C"
+      ],
+      "traits": [
+        "脱离左缘的悬浮磨砂胶囊 IconRail 岛 + 1px 内高光分层玻璃侧栏",
+        "舞台顶栏集成浮动目录抽屉触发器与 6 套主题预设实时色点切换",
+        "消息卡片强化顶部内高光描边，代码块升级 macOS 窗口式文件名顶栏",
+        "空状态升级为玻璃 KPI 仪表盘，设置弹窗改为双栏分区导航"
+      ],
+      "source": "option-c-glass.html",
+      "interactive": true
+    }
+  ]
+}

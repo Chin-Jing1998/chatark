@@ -1,0 +1,1174 @@
+{
+  "title": "ChatArk 工作台（M3E 色调容器方案）",
+  "brief": "面向 Claude Code 本地历史对话库的桌面归档与检索工作台，包含主工作台对话阅读态、仪表盘空状态与快速检索态、分区设置与主题画廊态。",
+  "frame": "phone",
+  "platform": "web",
+  "paletteKey": "purple",
+  "theme": {
+    "dark": false,
+    "bothModes": true,
+    "contrast": "standard",
+    "shape": "rounded",
+    "font": "system",
+    "emphasized": true,
+    "motion": "expressive"
+  },
+  "frames": [
+    {
+      "id": "workbench",
+      "name": "主工作台与对话阅读",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "bg": "surfaceContainerLow",
+      "note": "左侧 M3E 导航栏与圆角分类侧栏，右侧内嵌圆角主舞台画布（顶栏与标签栏合流），中部展示无左粗线的色调容器对话流与胶囊工具条，右侧常驻会话统计与目录。"
+    },
+    {
+      "id": "empty_search",
+      "name": "空状态仪表盘与快速检索",
+      "x": 1400,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "bg": "surfaceContainerLow",
+      "note": "无打开标签时呈现库规模仪表盘、全局搜索入口（⌘K）、最近阅读会话卡片与未导出会话补录快捷入口。"
+    },
+    {
+      "id": "settings_gallery",
+      "name": "分区设置与主题画廊",
+      "x": 2800,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "bg": "surfaceContainerLow",
+      "note": "双栏分区设置弹窗：左侧锚点导航切换五大配置模块，右侧展示亮暗模式切换、6 套双色板预设画廊与 Hook 自动导出状态。"
+    }
+  ],
+  "groups": [
+    {
+      "id": "wb-rail-group",
+      "x": 0,
+      "y": 0,
+      "axis": "x",
+      "items": [
+        {
+          "id": "wb-rail",
+          "kind": "navRail",
+          "label": "",
+          "icon": null,
+          "variant": "filled",
+          "railExpanded": false,
+          "size2": 800,
+          "selected": 0,
+          "tabs": [
+            {
+              "icon": "folder_open",
+              "label": "浏览"
+            },
+            {
+              "icon": "search",
+              "label": "搜索"
+            },
+            {
+              "icon": "star",
+              "label": "收藏"
+            },
+            {
+              "icon": "sell",
+              "label": "标签"
+            },
+            {
+              "icon": "settings",
+              "label": "设置"
+            }
+          ],
+          "actions": {
+            "tab:1": {
+              "to": "empty_search",
+              "transition": "fade"
+            },
+            "tab:4": {
+              "to": "settings_gallery",
+              "transition": "fade"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "wb-sidebar-bg-group",
+      "x": 96,
+      "y": 16,
+      "axis": "x",
+      "items": [
+        {
+          "id": "wb-sidebar-bg",
+          "kind": "box",
+          "label": "",
+          "icon": null,
+          "variant": "filled",
+          "fill": "surfaceContainer",
+          "size": 268,
+          "size2": 768,
+          "radiusTop": 24,
+          "radiusBottom": 24
+        }
+      ]
+    },
+    {
+      "id": "wb-sidebar-search-group",
+      "x": 112,
+      "y": 32,
+      "axis": "x",
+      "items": [
+        {
+          "id": "wb-sidebar-search",
+          "kind": "searchBar",
+          "label": "筛选分类或对话…",
+          "icon": "search",
+          "icon2": "tune",
+          "variant": "filled",
+          "size": 236,
+          "action": {
+            "to": "empty_search",
+            "transition": "fade"
+          }
+        }
+      ]
+    },
+    {
+      "id": "wb-sidebar-list-group",
+      "x": 112,
+      "y": 104,
+      "axis": "y",
+      "items": [
+        {
+          "id": "wb-conv-1",
+          "kind": "listItem",
+          "label": "convo:// 协议注入与主题同步",
+          "supporting": "架构重构 · OPUS · 42 条 · 14:20",
+          "icon": "push_pin",
+          "icon2": "star",
+          "variant": "tonal",
+          "size": 236
+        },
+        {
+          "id": "wb-conv-2",
+          "kind": "listItem",
+          "label": "SQLite FTS5 中文分词检索调优",
+          "supporting": "搜索引擎 · SONNET · 28 条 · 昨日",
+          "icon": "chat",
+          "icon2": "chevron_right",
+          "variant": "filled",
+          "size": 236
+        },
+        {
+          "id": "wb-conv-3",
+          "kind": "listItem",
+          "label": "Claude Stop Hook 增量归档脚本",
+          "supporting": "自动化 · OPUS · 19 条 · 10-29",
+          "icon": "chat",
+          "icon2": "chevron_right",
+          "variant": "filled",
+          "size": 236
+        },
+        {
+          "id": "wb-conv-4",
+          "kind": "listItem",
+          "label": "导出快照 CSP 与离线自包含校验",
+          "supporting": "安全加固 · HAIKU · 15 条 · 10-27",
+          "icon": "verified_user",
+          "icon2": "chevron_right",
+          "variant": "filled",
+          "size": 236
+        },
+        {
+          "id": "wb-conv-5",
+          "kind": "listItem",
+          "label": "拖拽分隔条跨 iframe 指针穿透修复",
+          "supporting": "界面交互 · SONNET · 31 条 · 10-25",
+          "icon": "chat",
+          "icon2": "chevron_right",
+          "variant": "filled",
+          "size": 236
+        }
+      ]
+    },
+    {
+      "id": "wb-stage-bg-group",
+      "x": 380,
+      "y": 16,
+      "axis": "x",
+      "items": [
+        {
+          "id": "wb-stage-bg",
+          "kind": "box",
+          "label": "",
+          "icon": null,
+          "variant": "filled",
+          "fill": "surface",
+          "size": 884,
+          "size2": 768,
+          "radiusTop": 28,
+          "radiusBottom": 28
+        }
+      ]
+    },
+    {
+      "id": "wb-topbar-group",
+      "x": 380,
+      "y": 16,
+      "axis": "x",
+      "items": [
+        {
+          "id": "wb-topbar",
+          "kind": "topAppBar",
+          "label": "ChatArk · convo:// 协议注入与主题同步",
+          "icon": "auto_awesome",
+          "icon2": "dark_mode",
+          "variant": "filled",
+          "size": 884,
+          "size2": 64,
+          "actions": {
+            "icon2": {
+              "to": "settings_gallery",
+              "transition": "fade"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "wb-tabs-group",
+      "x": 396,
+      "y": 84,
+      "axis": "x",
+      "items": [
+        {
+          "id": "wb-tabs",
+          "kind": "tabs",
+          "label": "",
+          "icon": null,
+          "variant": "filled",
+          "size": 612,
+          "selected": 0,
+          "tabs": [
+            {
+              "icon": "chat",
+              "label": "convo:// 协议注入与主题同步"
+            },
+            {
+              "icon": "search",
+              "label": "FTS5 中文分词检索调优"
+            },
+            {
+              "icon": "code",
+              "label": "src/main/theme.ts"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wb-cmd-btn-group",
+      "x": 1020,
+      "y": 80,
+      "axis": "x",
+      "items": [
+        {
+          "id": "wb-cmd-btn",
+          "kind": "button",
+          "label": "快速检索 ⌘K",
+          "icon": "terminal",
+          "variant": "tonal",
+          "size": 224,
+          "action": {
+            "to": "empty_search",
+            "transition": "fade"
+          }
+        }
+      ]
+    },
+    {
+      "id": "wb-user-msg-group",
+      "x": 396,
+      "y": 148,
+      "axis": "x",
+      "items": [
+        {
+          "id": "wb-user-msg",
+          "kind": "card",
+          "label": "用户提问 · #1 · 14:20:08",
+          "supporting": "请检查现行 TopBand 与 Stage 标签条的空间浪费问题，并让存量库中的 对话.html 在切换 6 套主题预设时实时同步背景与代码高亮配色。",
+          "icon": "person",
+          "variant": "filled",
+          "fill": "secondaryContainer",
+          "noImage": true,
+          "size": 588,
+          "size2": 132
+        }
+      ]
+    },
+    {
+      "id": "wb-tool-call-group",
+      "x": 396,
+      "y": 292,
+      "axis": "y",
+      "items": [
+        {
+          "id": "wb-tool-1",
+          "kind": "listItem",
+          "label": "Read · src/main/services/theme.ts (L1–L84)",
+          "supporting": "工具调用已完成 · 耗时 24ms · 展开查看 EMBED_FIX_CSS 与令牌白名单校验",
+          "icon": "terminal",
+          "icon2": "expand_more",
+          "variant": "tonal",
+          "size": 588
+        },
+        {
+          "id": "wb-tool-2",
+          "kind": "listItem",
+          "label": "Edit · src/renderer/src/app/Layout.tsx (+48 / -19)",
+          "supporting": "合并顶栏与标签栏为一体式色调容器头 · 点击在内置标签页打开源码",
+          "icon": "edit_note",
+          "icon2": "open_in_new",
+          "variant": "tonal",
+          "size": 588
+        }
+      ]
+    },
+    {
+      "id": "wb-answer-msg-group",
+      "x": 396,
+      "y": 452,
+      "axis": "x",
+      "items": [
+        {
+          "id": "wb-answer-msg",
+          "kind": "card",
+          "label": "Claude Opus 4.7 · 架构诊断与双端样式同步方案",
+          "supporting": "1. 外壳层：采用 Surface Container Low (#F6F4FA) 底板承载圆角主舞台 (#FFFFFF)，释放 40px 垂直阅读高度。\n2. 协议层：convo:// 拦截器在 </head> 前注入 html[data-theme] 令牌与 EMBED_FIX_CSS，无需重导历史 HTML 即可同步 6 套预设。\n3. 导航层：目录抽屉与右侧统计栏对齐 12px 粘性顶距，消除跳转抖动。",
+          "icon": "smart_toy",
+          "variant": "elevated",
+          "fill": "surfaceContainerLow",
+          "noImage": true,
+          "size": 588,
+          "size2": 236
+        }
+      ]
+    },
+    {
+      "id": "wb-msg-actions-group",
+      "x": 396,
+      "y": 704,
+      "axis": "x",
+      "items": [
+        {
+          "id": "wb-act-empty",
+          "kind": "button",
+          "label": "查看空状态工作台",
+          "icon": "dashboard",
+          "variant": "tonal",
+          "size": 288,
+          "action": {
+            "to": "empty_search",
+            "transition": "slide"
+          }
+        },
+        {
+          "id": "wb-act-settings",
+          "kind": "button",
+          "label": "打开主题画廊与设置",
+          "icon": "palette",
+          "variant": "filled",
+          "size": 296,
+          "action": {
+            "to": "settings_gallery",
+            "transition": "slide"
+          }
+        }
+      ]
+    },
+    {
+      "id": "wb-meta-card-group",
+      "x": 1000,
+      "y": 148,
+      "axis": "x",
+      "items": [
+        {
+          "id": "wb-meta-card",
+          "kind": "card",
+          "label": "会话统计与提问目录",
+          "supporting": "模型：claude-opus-4-7\n消息：42 条（提问 14 / 工具 16 / 回答 12）\n目录：/Users/chin.jing1998/编程项目工作站/chatark\n完整度：100%（含对话.html + meta.json）",
+          "icon": "analytics",
+          "variant": "filled",
+          "fill": "surfaceContainer",
+          "noImage": true,
+          "size": 248,
+          "size2": 220
+        }
+      ]
+    },
+    {
+      "id": "wb-toc-list-group",
+      "x": 1000,
+      "y": 384,
+      "axis": "y",
+      "items": [
+        {
+          "id": "wb-toc-1",
+          "kind": "listItem",
+          "label": "#1 检查 TopBand 与标签条空间",
+          "supporting": "14:20 · 2 次工具调用",
+          "icon": "bookmark",
+          "variant": "tonal",
+          "size": 248
+        },
+        {
+          "id": "wb-toc-2",
+          "kind": "listItem",
+          "label": "#2 convo:// 动态注入主题令牌",
+          "supporting": "14:24 · 5 次工具调用",
+          "icon": "notes",
+          "variant": "filled",
+          "size": 248
+        },
+        {
+          "id": "wb-toc-3",
+          "kind": "listItem",
+          "label": "#3 窄屏三栏自适应与 golden 测试",
+          "supporting": "14:31 · 3 次工具调用",
+          "icon": "notes",
+          "variant": "filled",
+          "size": 248
+        },
+        {
+          "id": "wb-toc-4",
+          "kind": "listItem",
+          "label": "#4 导出离线包与归档完整性校验",
+          "supporting": "14:38 · 6 次工具调用",
+          "icon": "check_circle",
+          "variant": "filled",
+          "size": 248
+        }
+      ]
+    },
+    {
+      "id": "es-rail-group",
+      "x": 1400,
+      "y": 0,
+      "axis": "x",
+      "items": [
+        {
+          "id": "es-rail",
+          "kind": "navRail",
+          "label": "",
+          "icon": null,
+          "variant": "filled",
+          "railExpanded": false,
+          "size2": 800,
+          "selected": 1,
+          "tabs": [
+            {
+              "icon": "folder_open",
+              "label": "浏览"
+            },
+            {
+              "icon": "search",
+              "label": "搜索"
+            },
+            {
+              "icon": "star",
+              "label": "收藏"
+            },
+            {
+              "icon": "sell",
+              "label": "标签"
+            },
+            {
+              "icon": "settings",
+              "label": "设置"
+            }
+          ],
+          "actions": {
+            "tab:0": {
+              "to": "workbench",
+              "transition": "fade"
+            },
+            "tab:4": {
+              "to": "settings_gallery",
+              "transition": "fade"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "es-sidebar-bg-group",
+      "x": 1496,
+      "y": 16,
+      "axis": "x",
+      "items": [
+        {
+          "id": "es-sidebar-bg",
+          "kind": "box",
+          "label": "",
+          "icon": null,
+          "variant": "filled",
+          "fill": "surfaceContainer",
+          "size": 268,
+          "size2": 768,
+          "radiusTop": 24,
+          "radiusBottom": 24
+        }
+      ]
+    },
+    {
+      "id": "es-sidebar-search-group",
+      "x": 1512,
+      "y": 32,
+      "axis": "x",
+      "items": [
+        {
+          "id": "es-sidebar-search",
+          "kind": "searchBar",
+          "label": "EMBED_FIX_CSS",
+          "icon": "search",
+          "icon2": "close",
+          "variant": "filled",
+          "size": 236
+        }
+      ]
+    },
+    {
+      "id": "es-sidebar-hits-group",
+      "x": 1512,
+      "y": 104,
+      "axis": "y",
+      "items": [
+        {
+          "id": "es-hit-1",
+          "kind": "listItem",
+          "label": "convo:// 协议注入与主题同步",
+          "supporting": "命中 4 处 · 架构重构 · 点击打开",
+          "icon": "description",
+          "icon2": "arrow_forward",
+          "variant": "tonal",
+          "size": 236,
+          "action": {
+            "to": "workbench",
+            "transition": "slide"
+          }
+        },
+        {
+          "id": "es-hit-2",
+          "kind": "listItem",
+          "label": "对话阅读器浮动目录抽屉精修",
+          "supporting": "命中 2 处 · 界面交互 · 10-30",
+          "icon": "description",
+          "icon2": "arrow_forward",
+          "variant": "filled",
+          "size": 236,
+          "action": {
+            "to": "workbench",
+            "transition": "slide"
+          }
+        },
+        {
+          "id": "es-hit-3",
+          "kind": "listItem",
+          "label": "6 套液态玻璃主题色板令牌校准",
+          "supporting": "命中 3 处 · 视觉系统 · 10-28",
+          "icon": "description",
+          "icon2": "arrow_forward",
+          "variant": "filled",
+          "size": 236,
+          "action": {
+            "to": "settings_gallery",
+            "transition": "slide"
+          }
+        }
+      ]
+    },
+    {
+      "id": "es-stage-bg-group",
+      "x": 1780,
+      "y": 16,
+      "axis": "x",
+      "items": [
+        {
+          "id": "es-stage-bg",
+          "kind": "box",
+          "label": "",
+          "icon": null,
+          "variant": "filled",
+          "fill": "surface",
+          "size": 884,
+          "size2": 768,
+          "radiusTop": 28,
+          "radiusBottom": 28
+        }
+      ]
+    },
+    {
+      "id": "es-topbar-group",
+      "x": 1780,
+      "y": 16,
+      "axis": "x",
+      "items": [
+        {
+          "id": "es-topbar",
+          "kind": "topAppBar",
+          "label": "ChatArk · 工作台概览与快速检索",
+          "icon": "arrow_back",
+          "icon2": "settings",
+          "variant": "filled",
+          "size": 884,
+          "size2": 64,
+          "actions": {
+            "icon": {
+              "to": "workbench",
+              "transition": "slideLeft"
+            },
+            "icon2": {
+              "to": "settings_gallery",
+              "transition": "fade"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "es-hero-search-group",
+      "x": 1820,
+      "y": 100,
+      "axis": "x",
+      "items": [
+        {
+          "id": "es-hero-search",
+          "kind": "searchBar",
+          "label": "搜索 1,248 条本地对话标题、正文、代码片段，或输入 > 运行命令 (⌘K)…",
+          "icon": "manage_search",
+          "icon2": "keyboard_command_key",
+          "variant": "filled",
+          "size": 804
+        }
+      ]
+    },
+    {
+      "id": "es-stat-1-group",
+      "x": 1820,
+      "y": 176,
+      "axis": "x",
+      "items": [
+        {
+          "id": "es-stat-1",
+          "kind": "card",
+          "label": "1,248 条已归档对话",
+          "supporting": "跨越 38 个本地 Git 仓库与工作站目录，全文索引 FTS5 毫秒级响应。",
+          "icon": "inventory_2",
+          "variant": "filled",
+          "fill": "primaryContainer",
+          "noImage": true,
+          "size": 256,
+          "size2": 148,
+          "action": {
+            "to": "workbench",
+            "transition": "fade"
+          }
+        }
+      ]
+    },
+    {
+      "id": "es-stat-2-group",
+      "x": 2094,
+      "y": 176,
+      "axis": "x",
+      "items": [
+        {
+          "id": "es-stat-2",
+          "kind": "card",
+          "label": "24 条收藏与置顶要案",
+          "supporting": "含核心架构决策、疑难故障排查与高频复用提示词模板。",
+          "icon": "star",
+          "variant": "filled",
+          "fill": "secondaryContainer",
+          "noImage": true,
+          "size": 256,
+          "size2": 148,
+          "action": {
+            "to": "workbench",
+            "transition": "fade"
+          }
+        }
+      ]
+    },
+    {
+      "id": "es-stat-3-group",
+      "x": 2368,
+      "y": 176,
+      "axis": "x",
+      "items": [
+        {
+          "id": "es-stat-3",
+          "kind": "card",
+          "label": "3 条未归档会话待补录",
+          "supporting": "扫描 ~/.claude/projects 发现新会话，一键补录生成自包含 HTML。",
+          "icon": "cloud_download",
+          "variant": "filled",
+          "fill": "tertiaryContainer",
+          "noImage": true,
+          "size": 256,
+          "size2": 148,
+          "action": {
+            "to": "settings_gallery",
+            "transition": "slide"
+          }
+        }
+      ]
+    },
+    {
+      "id": "es-recents-list-group",
+      "x": 1820,
+      "y": 344,
+      "axis": "y",
+      "items": [
+        {
+          "id": "es-recent-1",
+          "kind": "listItem",
+          "label": "最近打开 · convo:// 协议注入与主题同步",
+          "supporting": "架构重构 · /Users/chin.jing1998/编程项目工作站/chatark · 刚刚阅读",
+          "icon": "history",
+          "icon2": "open_in_new",
+          "variant": "tonal",
+          "size": 804,
+          "action": {
+            "to": "workbench",
+            "transition": "slide"
+          }
+        },
+        {
+          "id": "es-recent-2",
+          "kind": "listItem",
+          "label": "最近打开 · SQLite FTS5 中文分词检索调优",
+          "supporting": "搜索引擎 · /Users/chin.jing1998/编程项目工作站/chatark · 2 小时前",
+          "icon": "history",
+          "icon2": "open_in_new",
+          "variant": "filled",
+          "size": 804,
+          "action": {
+            "to": "workbench",
+            "transition": "slide"
+          }
+        },
+        {
+          "id": "es-recent-3",
+          "kind": "listItem",
+          "label": "最近打开 · Claude Stop Hook 增量归档脚本校验",
+          "supporting": "自动化 · ~/.claude/hooks/export_convo.py · 昨日 19:42",
+          "icon": "history",
+          "icon2": "open_in_new",
+          "variant": "filled",
+          "size": 804,
+          "action": {
+            "to": "workbench",
+            "transition": "slide"
+          }
+        },
+        {
+          "id": "es-recent-4",
+          "kind": "listItem",
+          "label": "快捷命令 · 打开外观与 6 套主题预设画廊",
+          "supporting": "实时切换极光蓝紫 / Nord / Solarized / Dracula / Rosé Pine / Forest",
+          "icon": "palette",
+          "icon2": "chevron_right",
+          "variant": "filled",
+          "size": 804,
+          "action": {
+            "to": "settings_gallery",
+            "transition": "slide"
+          }
+        }
+      ]
+    },
+    {
+      "id": "es-bottom-actions-group",
+      "x": 1820,
+      "y": 664,
+      "axis": "x",
+      "items": [
+        {
+          "id": "es-btn-open",
+          "kind": "button",
+          "label": "恢复上次阅读会话 (⌘O)",
+          "icon": "menu_book",
+          "variant": "filled",
+          "size": 398,
+          "action": {
+            "to": "workbench",
+            "transition": "slide"
+          }
+        },
+        {
+          "id": "es-btn-backfill",
+          "kind": "button",
+          "label": "进入设置与历史补录 (⌘,)",
+          "icon": "tune",
+          "variant": "tonal",
+          "size": 402,
+          "action": {
+            "to": "settings_gallery",
+            "transition": "slide"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sg-rail-group",
+      "x": 2800,
+      "y": 0,
+      "axis": "x",
+      "items": [
+        {
+          "id": "sg-rail",
+          "kind": "navRail",
+          "label": "",
+          "icon": null,
+          "variant": "filled",
+          "railExpanded": false,
+          "size2": 800,
+          "selected": 4,
+          "tabs": [
+            {
+              "icon": "folder_open",
+              "label": "浏览"
+            },
+            {
+              "icon": "search",
+              "label": "搜索"
+            },
+            {
+              "icon": "star",
+              "label": "收藏"
+            },
+            {
+              "icon": "sell",
+              "label": "标签"
+            },
+            {
+              "icon": "settings",
+              "label": "设置"
+            }
+          ],
+          "actions": {
+            "tab:0": {
+              "to": "workbench",
+              "transition": "fade"
+            },
+            "tab:1": {
+              "to": "empty_search",
+              "transition": "fade"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "sg-modal-bg-group",
+      "x": 2916,
+      "y": 16,
+      "axis": "x",
+      "items": [
+        {
+          "id": "sg-modal-bg",
+          "kind": "box",
+          "label": "",
+          "icon": null,
+          "variant": "filled",
+          "fill": "surface",
+          "size": 1148,
+          "size2": 768,
+          "radiusTop": 28,
+          "radiusBottom": 28
+        }
+      ]
+    },
+    {
+      "id": "sg-topbar-group",
+      "x": 2916,
+      "y": 16,
+      "axis": "x",
+      "items": [
+        {
+          "id": "sg-topbar",
+          "kind": "topAppBar",
+          "label": "设置中心 · 外观预设、存储迁移与自动归档",
+          "icon": "arrow_back",
+          "icon2": "check",
+          "variant": "filled",
+          "size": 1148,
+          "size2": 64,
+          "actions": {
+            "icon": {
+              "to": "workbench",
+              "transition": "slideLeft"
+            },
+            "icon2": {
+              "to": "workbench",
+              "transition": "fade"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "sg-nav-list-group",
+      "x": 2936,
+      "y": 96,
+      "axis": "y",
+      "items": [
+        {
+          "id": "sg-nav-1",
+          "kind": "listItem",
+          "label": "外观与明暗模式",
+          "supporting": "跟随系统 / 亮色 / 暗色",
+          "icon": "contrast",
+          "variant": "tonal",
+          "size": 260
+        },
+        {
+          "id": "sg-nav-2",
+          "kind": "listItem",
+          "label": "主题风格画廊",
+          "supporting": "6 套外壳+阅读器联动色板",
+          "icon": "palette",
+          "variant": "tonal",
+          "size": 260
+        },
+        {
+          "id": "sg-nav-3",
+          "kind": "listItem",
+          "label": "保存路径与迁移",
+          "supporting": "支持软链接与安全复制切换",
+          "icon": "folder_managed",
+          "variant": "filled",
+          "size": 260
+        },
+        {
+          "id": "sg-nav-4",
+          "kind": "listItem",
+          "label": "未导出会话补录",
+          "supporting": "扫描 ~/.claude 增量导入",
+          "icon": "cloud_sync",
+          "variant": "filled",
+          "size": 260
+        },
+        {
+          "id": "sg-nav-5",
+          "kind": "listItem",
+          "label": "Hook 自动导出",
+          "supporting": "Stop 事件触发静默归档",
+          "icon": "bolt",
+          "variant": "filled",
+          "size": 260
+        }
+      ]
+    },
+    {
+      "id": "sg-mode-btns-group",
+      "x": 3220,
+      "y": 96,
+      "axis": "x",
+      "items": [
+        {
+          "id": "sg-mode-sys",
+          "kind": "button",
+          "label": "跟随系统 (Auto)",
+          "icon": "brightness_auto",
+          "variant": "filled",
+          "size": 268
+        },
+        {
+          "id": "sg-mode-light",
+          "kind": "button",
+          "label": "亮色模式 (Light)",
+          "icon": "light_mode",
+          "variant": "tonal",
+          "size": 268
+        },
+        {
+          "id": "sg-mode-dark",
+          "kind": "button",
+          "label": "暗色模式 (Dark)",
+          "icon": "dark_mode",
+          "variant": "tonal",
+          "size": 268
+        }
+      ]
+    },
+    {
+      "id": "sg-preset-1-group",
+      "x": 3220,
+      "y": 172,
+      "axis": "x",
+      "items": [
+        {
+          "id": "sg-preset-1",
+          "kind": "card",
+          "label": "极光蓝紫 (Default) · 当前使用",
+          "supporting": "外壳品牌紫 #7C6FF2 + 清透磨砂底板，兼顾代码对比度与长时间阅读舒适度。",
+          "icon": "check_circle",
+          "variant": "filled",
+          "fill": "primaryContainer",
+          "noImage": true,
+          "size": 264,
+          "size2": 160
+        }
+      ]
+    },
+    {
+      "id": "sg-preset-2-group",
+      "x": 3498,
+      "y": 172,
+      "axis": "x",
+      "items": [
+        {
+          "id": "sg-preset-2",
+          "kind": "card",
+          "label": "Nord 极地冰蓝",
+          "supporting": "冷冽冰川蓝 #5E81AC 与低饱和岩灰底板，适合终端重度用户与夜间审阅。",
+          "icon": "ac_unit",
+          "variant": "outlined",
+          "fill": "surfaceContainerLow",
+          "noImage": true,
+          "size": 264,
+          "size2": 160
+        }
+      ]
+    },
+    {
+      "id": "sg-preset-3-group",
+      "x": 3776,
+      "y": 172,
+      "axis": "x",
+      "items": [
+        {
+          "id": "sg-preset-3",
+          "kind": "card",
+          "label": "Solarized 暖阳羊皮纸",
+          "supporting": "经典 #FDF6E3 暖米纸张底色配青蓝强调色，长篇文献与架构对话零眩光。",
+          "icon": "wb_sunny",
+          "variant": "outlined",
+          "fill": "surfaceContainerLow",
+          "noImage": true,
+          "size": 264,
+          "size2": 160
+        }
+      ]
+    },
+    {
+      "id": "sg-preset-4-group",
+      "x": 3220,
+      "y": 348,
+      "axis": "x",
+      "items": [
+        {
+          "id": "sg-preset-4",
+          "kind": "card",
+          "label": "Dracula 暗夜霓虹",
+          "supporting": "高辨识度紫粉 #BD93F9 与深邃炭黑画布，突出工具调用状态与代码块边界。",
+          "icon": "nights_stay",
+          "variant": "outlined",
+          "fill": "surfaceContainerLow",
+          "noImage": true,
+          "size": 264,
+          "size2": 160
+        }
+      ]
+    },
+    {
+      "id": "sg-preset-5-group",
+      "x": 3498,
+      "y": 348,
+      "axis": "x",
+      "items": [
+        {
+          "id": "sg-preset-5",
+          "kind": "card",
+          "label": "Rosé Pine 松玫瑰",
+          "supporting": "柔和雾粉与松木灰调，提供温润克制的编辑室阅读氛围。",
+          "icon": "local_florist",
+          "variant": "outlined",
+          "fill": "surfaceContainerLow",
+          "noImage": true,
+          "size": 264,
+          "size2": 160
+        }
+      ]
+    },
+    {
+      "id": "sg-preset-6-group",
+      "x": 3776,
+      "y": 348,
+      "axis": "x",
+      "items": [
+        {
+          "id": "sg-preset-6",
+          "kind": "card",
+          "label": "Forest 秘林苔绿",
+          "supporting": "自然森林绿 #3A7D5C 与有机暖灰容器，缓解高频检索视觉疲劳。",
+          "icon": "park",
+          "variant": "outlined",
+          "fill": "surfaceContainerLow",
+          "noImage": true,
+          "size": 264,
+          "size2": 160
+        }
+      ]
+    },
+    {
+      "id": "sg-bottom-settings-group",
+      "x": 3220,
+      "y": 528,
+      "axis": "y",
+      "items": [
+        {
+          "id": "sg-path-item",
+          "kind": "listItem",
+          "label": "当前对话库路径：~/编程项目工作站/Claude对话归档库",
+          "supporting": "已启用 FTS5 实时索引 · 支持一键安全迁移或创建兼容软链接",
+          "icon": "folder_special",
+          "icon2": "drive_file_move",
+          "variant": "tonal",
+          "size": 820
+        },
+        {
+          "id": "sg-hook-item",
+          "kind": "listItem",
+          "label": "Claude Code Stop Hook 自动导出：已安装并处于最新状态 (v1.4)",
+          "supporting": "每次 Claude Code 会话结束时自动导出 对话.html 与 meta.json 至归档库",
+          "icon": "verified",
+          "switch": true,
+          "checked": true,
+          "variant": "filled",
+          "size": 820
+        },
+        {
+          "id": "sg-return-item",
+          "kind": "listItem",
+          "label": "完成配置并返回 ChatArk 主工作台",
+          "supporting": "所有主题与阅读器令牌改动已实时同步至已打开的对话标签页",
+          "icon": "arrow_back",
+          "icon2": "check",
+          "variant": "tonal",
+          "size": 820,
+          "action": {
+            "to": "workbench",
+            "transition": "slideLeft"
+          }
+        }
+      ]
+    }
+  ]
+}

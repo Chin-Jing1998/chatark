@@ -5,6 +5,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  Layers,
   FolderInput,
   DownloadCloud,
   Star,
@@ -14,6 +15,7 @@ import {
   MessageSquare
 } from 'lucide-react'
 import type { SearchHit } from '@shared/types'
+import { UI_SCHEMES } from '@shared/themes'
 import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/dialog'
 import {
   Command,
@@ -35,7 +37,7 @@ interface Props {
 
 export default function CommandPalette({ open, onOpenChange, onOpenSettings }: Props): JSX.Element {
   const { state, openConversation } = useStore()
-  const { set } = useTheme()
+  const { set, scheme, setScheme } = useTheme()
   const actions = useConversationActions()
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<SearchHit[]>([])
@@ -212,6 +214,21 @@ export default function CommandPalette({ open, onOpenChange, onOpenSettings }: P
               <CommandItem value="cmd-system" onSelect={() => set('system')}>
                 <Monitor className="size-4" /> 主题：跟随系统
               </CommandItem>
+              {UI_SCHEMES.map((s) => (
+                <CommandItem
+                  key={s.id}
+                  value={`cmd-scheme-${s.id}`}
+                  onSelect={() => {
+                    setScheme(s.id)
+                    close()
+                  }}
+                >
+                  <Layers className="size-4" /> 界面方案：{s.name}
+                  {scheme === s.id && (
+                    <span className="ml-auto text-xs text-brand">当前使用</span>
+                  )}
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>

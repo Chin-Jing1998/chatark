@@ -13,6 +13,7 @@ import {
 import type { ConversationSummary } from '@shared/types'
 import { cn } from '@renderer/lib/cn'
 import { formatDateTime } from '@renderer/lib/format'
+import { useTheme } from '@renderer/lib/useTheme'
 import { useConversationActions } from '@renderer/lib/useConversationActions'
 import {
   ContextMenu,
@@ -50,6 +51,8 @@ function modelTag(model: string): string {
   if (m.includes('haiku')) return 'HAIKU'
   if (m.includes('gpt')) return 'GPT'
   if (m.includes('gemini')) return 'GEMINI'
+  if (m.includes('codex')) return 'CODEX'
+  if (/\bo[134]\b/.test(m)) return 'O-MODEL'
   return ''
 }
 
@@ -68,12 +71,13 @@ export default function ConversationItem({
   showPath = false
 }: Props): JSX.Element {
   const actions = useConversationActions()
+  const { scheme } = useTheme()
   const [renameOpen, setRenameOpen] = useState(false)
   const incomplete = item.integrity.missingFiles.length > 0
   const tag = modelTag(item.model)
 
   const trigger =
-    variant === 'tree' ? (
+    variant === 'tree' && scheme === 'classic' ? (
       <button
         onClick={onOpen}
         aria-current={active ? 'true' : undefined}
@@ -106,6 +110,75 @@ export default function ConversationItem({
         </span>
         {showPath && item.relPath && (
           <span className="w-full min-w-0 truncate pl-5 pt-0.5 text-[11px] font-normal text-muted-foreground/70">
+            {item.relPath}
+          </span>
+        )}
+      </button>
+    ) : variant === 'tree' ? (
+      <button
+        onClick={onOpen}
+        aria-current={active ? 'true' : undefined}
+        style={{ paddingLeft: 10 + depth * 12 }}
+        className={cn(
+          'group flex w-full flex-col gap-0.5 py-1.5 pr-2.5 text-left text-[13px] transition-all',
+          scheme === 'm3e' &&
+            (active
+              ? 'rounded-xl bg-brand/15 font-semibold text-foreground'
+              : 'rounded-xl text-sidebar-foreground hover:bg-accent/70 hover:text-accent-foreground'),
+          scheme === 'archive' &&
+            (active
+              ? 'border-b border-border/50 bg-card font-semibold text-foreground shadow-[inset_3px_0_0_0_hsl(var(--brand))]'
+              : 'border-b border-border/40 text-sidebar-foreground hover:bg-background/70 hover:text-foreground'),
+          scheme === 'glass' &&
+            (active
+              ? 'glass-specular rounded-xl border border-brand/50 bg-card/85 font-semibold text-foreground'
+              : 'rounded-xl border border-transparent text-sidebar-foreground hover:border-border/60 hover:bg-card/50 hover:text-foreground')
+        )}
+      >
+        <span className="flex w-full min-w-0 items-center gap-1.5">
+          {scheme !== 'archive' && (
+            <MessageSquareText
+              className={cn('size-3.5 shrink-0', active ? 'text-brand' : 'opacity-55')}
+            />
+          )}
+          {item.org.pinned && <Pin className="size-3 shrink-0 text-brand" />}
+          {item.org.favorite && <Star className="size-3 shrink-0 fill-amber-400 text-amber-400" />}
+          <span className="min-w-0 flex-1 truncate">{item.title}</span>
+          {incomplete && (
+            <span className="shrink-0 rounded bg-destructive/15 px-1 text-[10px] font-medium text-destructive">
+              缺
+            </span>
+          )}
+        </span>
+        <span
+          className={cn(
+            'flex w-full min-w-0 items-center gap-1.5 text-[11px] font-normal tabular-nums text-muted-foreground/80',
+            scheme !== 'archive' && 'pl-5'
+          )}
+          style={scheme === 'archive' ? { fontFamily: 'var(--font-mono)' } : undefined}
+        >
+          {tag && (
+            <span
+              className={cn(
+                'shrink-0 px-1.5 py-px text-[10px] font-semibold tracking-wide',
+                scheme === 'archive'
+                  ? 'rounded-[3px] border border-border text-foreground/85'
+                  : 'rounded-full bg-brand/12 text-brand'
+              )}
+            >
+              {tag}
+            </span>
+          )}
+          <span className="truncate">{formatDateTime(item.startedAt)}</span>
+          <span className="ml-auto shrink-0">{item.messageCount}条</span>
+        </span>
+        {showPath && item.relPath && (
+          <span
+            className={cn(
+              'w-full min-w-0 truncate pt-0.5 text-[11px] font-normal text-muted-foreground/70',
+              scheme !== 'archive' && 'pl-5'
+            )}
+          >
             {item.relPath}
           </span>
         )}

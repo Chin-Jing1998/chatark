@@ -51,7 +51,8 @@ export async function findUnexported(): Promise<UnexportedSession[]> {
       cwd: info?.cwd || '',
       turns: info?.turns || 0,
       model: info?.model ?? undefined,
-      mtimeMs: c.mtimeMs
+      mtimeMs: c.mtimeMs,
+      source: info?.source ?? c.source ?? 'claude'
     })
   })
   return out.sort((a, b) => b.mtimeMs - a.mtimeMs)
